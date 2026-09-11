@@ -203,13 +203,23 @@ def score(jd: JobDescription, corpus: Corpus) -> Scorecard:
             skill_names.extend(names)
         evidence = list(dict.fromkeys(evidence))
         skill_names = list(dict.fromkeys(skill_names))
-        supported = verdict is not Verdict.GAP
 
+        # A GAP names no evidence on the scorecard — claiming support for a
+        # requirement you do not meet is the misreporting this whole card exists
+        # to avoid. But a COMPOUND gap can still have a met half, and the bullet
+        # answering it is genuinely relevant to the CV.
+        #
+        # Found live: the Google posting's best-matching preferred qualification
+        # asked for LLM-native metrics AND state management AND granular
+        # tracing. Correctly scored GAP, and that emptied the evidence list, so
+        # the model-router and gateway bullets answering the first half dropped
+        # off the CV entirely. The verdict was right; using it to decide page
+        # content was not.
         row = Row(
             requirement=req,
             verdict=verdict,
-            evidence_ids=evidence[:EVIDENCE_SHOWN] if supported else [],
-            all_evidence_ids=evidence if supported else [],
+            evidence_ids=evidence[:EVIDENCE_SHOWN] if verdict is not Verdict.GAP else [],
+            all_evidence_ids=evidence,
             skill_names=skill_names,
             evidenced_years=_evidenced_years(corpus, req_tokens) if req.years_required else None,
         )
