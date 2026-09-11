@@ -58,6 +58,28 @@ def test_gitignore_is_the_disclosure_boundary() -> None:
     )
 
 
+def test_the_readme_test_count_badge_is_current() -> None:
+    """A hand-written number on a badge is a metric with nobody checking it.
+
+    That is precisely the failure this project refuses to allow on a CV, so it
+    is not allowed on its own README either. The badge is static because there
+    is no free service that counts tests; it is honest because this asserts it.
+    """
+    readme = (ROOT / "README.md").read_text(encoding="utf-8")
+    match = re.search(r"tests-(\d+)%20passing", readme)
+    assert match, "the README must carry a tests-N%20passing badge"
+    claimed = int(match.group(1))
+
+    actual = 0
+    for path in (ROOT / "tests").glob("test_*.py"):
+        actual += len(re.findall(r"^def test_", path.read_text(encoding="utf-8"), re.MULTILINE))
+
+    assert claimed == actual, (
+        f"the README badge claims {claimed} tests, but {actual} exist. "
+        "Update the badge in README.md."
+    )
+
+
 def test_no_real_corpus_is_tracked() -> None:
     """Nothing corpus-shaped may be TRACKED by git.
 

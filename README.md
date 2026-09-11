@@ -1,5 +1,22 @@
 # cv-tailor
 
+[![CI](https://img.shields.io/github/actions/workflow/status/alvintayzhenwei/cv-tailor/ci.yml?branch=main&label=CI&logo=github)](https://github.com/alvintayzhenwei/cv-tailor/actions/workflows/ci.yml)
+[![Audit](https://img.shields.io/github/actions/workflow/status/alvintayzhenwei/cv-tailor/audit.yml?branch=main&label=Audit&logo=github)](https://github.com/alvintayzhenwei/cv-tailor/actions/workflows/audit.yml)
+[![CodeQL](https://img.shields.io/github/actions/workflow/status/alvintayzhenwei/cv-tailor/codeql.yml?branch=main&label=CodeQL&logo=github)](https://github.com/alvintayzhenwei/cv-tailor/actions/workflows/codeql.yml)
+[![tests](https://img.shields.io/badge/tests-61%20passing-brightgreen)](tests/)
+[![license](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
+
+<!--
+The three workflow badges read live from GitHub Actions and show "no status"
+until each workflow has run on `main`.
+
+The test count is a STATIC badge, which is normally how a number goes quietly
+stale — the same failure this project refuses on a CV. So it is pinned by a
+test: tests/test_packaging.py::test_the_readme_test_count_badge_is_current
+counts the test functions and fails if the badge disagrees. Change the badge and
+the count together, or CI says so.
+-->
+
 Turn a job description into a tailored, ATS-safe application kit — a match scorecard, a
 one-page CV in Markdown and `.docx`, a ranked gap plan, and the interview questions that
 posting is likely to produce.
