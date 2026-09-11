@@ -1,0 +1,178 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# career-corpus.example.yaml — the schema, with wholly fictional data.
+#
+# This file is committed. Your real corpus is NOT: copy this to
+# `career-corpus.yaml` (gitignored) or point CV_TAILOR_CORPUS at it elsewhere.
+#
+# The data here is invented from scratch rather than redacted from a real
+# corpus. A redaction leaks shape even with the names removed, and it invites
+# someone to "restore" a name later. None of these people or companies exist.
+#
+# This is also what CI validates, since the real corpus never reaches CI. So it
+# deliberately exercises every field that has a rule attached — including the
+# awkward ones: a role whose dates are unknown, and a metric that has no
+# measurement behind it.
+# ─────────────────────────────────────────────────────────────────────────────
+
+language: en
+
+person:
+  name: Jordan Reyes
+  email: jordan.reyes@example.com
+  phone: "+65 0000 0000"
+  location: Singapore
+  languages: [English, Malay]
+  links:
+    linkedin: https://www.linkedin.com/in/example
+    github: https://github.com/example
+    site: https://example.com
+
+roles:
+  # A current role. `end: present` is the only way to say "ongoing" — a date in
+  # the future would be a claim about something that has not happened.
+  - id: northwind-platform-lead
+    org: Northwind Systems
+    title: Platform Engineering Lead
+    # Alternate honest framings of the SAME role, for postings that name the job
+    # differently. This is not a licence to invent a title you did not hold.
+    title_framings:
+      - Engineering Manager, Platform
+    location: Singapore
+    start: "2023-04"
+    end: present
+    tags: [platform, leadership, delivery]
+    bullets:
+      # A VERIFIED metric: the figure is real and was measured.
+      - id: nw-deploy-time
+        claim: Cut median deploy time from 40 minutes to under 4
+        mechanism: replacing a serial release script with a parallelised pipeline and cached builds
+        tags: [ci-cd, automation, delivery, platform]
+        metric:
+          verified: true
+          value: 40 min to under 4
+
+      # An UNVERIFIED metric. The figure is not known, so the bullet carries a
+      # visible hole instead. Note the placeholder appears verbatim in the claim
+      # — a placeholder that never renders is one nobody ever fills in, so the
+      # validator rejects it.
+      - id: nw-oncall-load
+        claim: Reduced out-of-hours pages by [X]% across the platform team
+        mechanism: alert deduplication and ownership routing
+        tags: [reliability, on-call, platform]
+        metric:
+          verified: false
+          placeholder: "[X]%"
+
+      # A bullet with NO metric at all. Not every true statement is a
+      # measurement, and requiring one everywhere is an invitation to invent.
+      - id: nw-gateway-migration
+        claim: Led the migration off the legacy API gateway with no customer-visible downtime
+        mechanism: incremental strangler pattern behind a routing shim
+        tags: [architecture, migration, api]
+
+  - id: harbourline-senior-engineer
+    org: Harbourline Digital
+    title: Senior Software Engineer
+    location: Singapore
+    start: "2019-08"
+    end: "2023-03"
+    tags: [engineering, frontend]
+    bullets:
+      - id: hl-design-system
+        claim: Built the component library adopted by [N] product teams
+        mechanism: a versioned design system with visual regression tests
+        tags: [frontend, react, design-system]
+        metric:
+          verified: false
+          placeholder: "[N]"
+
+      - id: hl-accessibility
+        claim: Brought the flagship product to WCAG 2.1 AA
+        mechanism: an audit, a remediation backlog, and automated checks in CI
+        tags: [frontend, accessibility, quality]
+
+  # A role whose dates are genuinely unknown. It is KEPT and FLAGGED rather than
+  # dropped: discarding it would lose real history, and guessing a date would be
+  # a lie. `todos()` surfaces it so the gap is visible rather than silent.
+  - id: earlier-agency-work
+    org: Tidewater Studio
+    title: Web Developer
+    start: TODO
+    end: TODO
+    tags: [frontend, agency]
+    bullets:
+      - id: tw-campaign-sites
+        claim: Delivered campaign sites for regional retail clients
+        mechanism: hand-built responsive templates on a shared PHP stack
+        tags: [frontend, delivery]
+
+# Skills point BACK at the bullets that substantiate them, so a claim of skill is
+# never free-floating. `aliases` is the vocabulary bridge: it lets a rendered CV
+# adopt a posting's exact wording without adopting a claim. A phrasing that is
+# not declared here is not adopted.
+skills:
+  - name: React
+    aliases: [React.js, ReactJS]
+    tags: [frontend]
+    evidence_refs: [hl-design-system, hl-accessibility]
+
+  - name: CI/CD
+    aliases: [continuous integration, continuous delivery, build pipelines]
+    tags: [platform, automation]
+    evidence_refs: [nw-deploy-time]
+
+  - name: Accessibility
+    aliases: [a11y, WCAG]
+    tags: [frontend, quality]
+    evidence_refs: [hl-accessibility]
+
+# Positions are worked answers to questions you hold a real view on. They are a
+# SEPARATE entry kind from bullets on purpose: a view about how to do something
+# is not evidence of having done it, and flattening the two would let an opinion
+# score as delivery.
+positions:
+  - id: pos-rollback-strategy
+    topic: Production
+    question: How do you decide between rolling back and rolling forward?
+    answer: >-
+      Roll back by default when the blast radius is unknown; roll forward only when
+      the fix is understood and smaller than the revert. The decision belongs on the
+      runbook before the incident, not in the incident.
+    source: personal notes
+
+  - id: pos-design-system-adoption
+    topic: Frontend
+    question: How do you get teams to actually adopt a design system?
+    answer: >-
+      Adoption follows from removing work, not from mandate. Ship the components the
+      teams are already rebuilding by hand, keep the migration path one import wide,
+      and let the first two teams be collaborators rather than customers.
+
+education:
+  - institution: Example University
+    qualification: BSc (Hons) Computer Science
+    specialisation: Distributed Systems
+    start: "2015-08"
+    end: "2019-06"
+
+certifications:
+  - name: Example Certified Practitioner
+    issuer: Example Body
+    held: true
+  # `held: false` records something in progress. It is recorded rather than
+  # omitted so a rendered CV can say "in progress" honestly — and so that a
+  # finished certification is a one-word edit rather than a rediscovery.
+  - name: Example Advanced Credential
+    issuer: Example Body
+    held: false
+
+artifacts:
+  - name: example-toolkit
+    kind: package
+    url: https://example.com/package
+    blurb: A small library for the thing described above.
+
+  - name: Why rollbacks beat roll-forwards
+    kind: article
+    url: https://example.com/writing/rollbacks
+    blurb: On choosing a recovery strategy before you need one.
