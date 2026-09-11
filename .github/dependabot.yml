@@ -1,0 +1,59 @@
+# Dependabot — https://docs.github.com/code-security/dependabot
+#
+# This file configures VERSION updates only. Dependabot SECURITY updates (the
+# advisory-driven ones) are a repository SETTING, not a file:
+#   Settings → Code security → "Dependabot security updates"
+# Enable that too; this file alone does not turn it on. On a PUBLIC repository
+# both are free, as are Dependabot alerts, secret scanning and CodeQL.
+#
+# Deliberately NO `ignore` rules, even though this project pins upper bounds on
+# purpose. GitHub's docs are ambiguous about whether an `ignore` condition also
+# suppresses SECURITY updates for that dependency, and a silently muted advisory
+# is a far worse outcome than a bump PR nobody wants. A version-bump PR is a
+# proposal, not a merge — closing one costs a click.
+#
+# `cooldown` is the one setting here about supply-chain ATTACK rather than
+# housekeeping: it refuses to adopt a release until it has been public for some
+# days, which is the window in which a hijacked package version gets published,
+# noticed and yanked. It does NOT delay security updates.
+
+version: 2
+
+updates:
+  # ── The engine itself: a uv project with pyproject.toml and uv.lock ─────────
+  # `uv` rather than `pip`: Dependabot reads uv.lock natively, which is the file
+  # that decides what actually gets installed. Auditing or bumping the manifest
+  # ranges instead would target versions this project does not install.
+  - package-ecosystem: "uv"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+    open-pull-requests-limit: 5
+    cooldown:
+      # A compromised package almost always ships AS a patch, so the delay
+      # applies to patches too. Security updates are exempt.
+      default-days: 7
+      semver-major-days: 14
+    groups:
+      python:
+        patterns: ["*"]
+    labels: ["dependencies", "python"]
+
+  # ── The workflows in this directory ────────────────────────────────────────
+  # A pinned action is a supply-chain dependency like any other. Every action
+  # here is pinned to a full commit SHA rather than a mutable tag, because `@v7`
+  # is a moving pointer the upstream owner can repoint at any commit — so
+  # Dependabot is what keeps those SHAs current and reviewable.
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+    open-pull-requests-limit: 5
+    cooldown:
+      default-days: 7
+    groups:
+      actions:
+        patterns: ["*"]
+    labels: ["dependencies", "github-actions"]

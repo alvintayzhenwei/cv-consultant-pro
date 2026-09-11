@@ -1,0 +1,70 @@
+# CodeQL static analysis.
+#
+# Unlike the sibling site repository — where this workflow is gated behind an
+# opt-in because code scanning needs a paid Code Security licence on a PRIVATE
+# repo — this repository is PUBLIC, so CodeQL, Dependabot alerts and secret
+# scanning are all free and this runs unconditionally.
+#
+# Two languages, and `actions` is not an afterthought: the workflows in this
+# directory hold GITHUB_TOKEN permissions and run on `pull_request`, which is
+# the surface script injection and unpinned-action attacks actually use. CodeQL
+# analyses the workflow files themselves for it.
+#
+# Python needs no build step — CodeQL extracts from source — so there is no
+# `uv sync` here.
+
+name: CodeQL
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  schedule:
+    # Weekly. CodeQL's own query packs improve between runs, so a scheduled scan
+    # finds things in code that has not changed since the last push.
+    - cron: "0 7 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: codeql-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  analyze:
+    name: CodeQL (${{ matrix.language }})
+    runs-on: ubuntu-latest
+    permissions:
+      # Required to upload results to the Security tab.
+      security-events: write
+      contents: read
+      actions: read
+    strategy:
+      fail-fast: false
+      matrix:
+        language: [python, actions]
+
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          # Nothing in this job talks to git; do not leave GITHUB_TOKEN
+          # sitting in .git/config for the rest of the run.
+          persist-credentials: false
+
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@cdf488f595d80d6e07e03d4674febd5ab45fa938 # v4
+        with:
+          # `languages`, PLURAL. codeql-action/init declares no `language`
+          # input, and an unknown `with:` key is only a warning annotation, so
+          # the singular silently drops the matrix value and every job falls
+          # back to autodetection — with `actions` never selected at all.
+          languages: ${{ matrix.language }}
+          queries: security-and-quality
+
+      - name: Analyze
+        uses: github/codeql-action/analyze@cdf488f595d80d6e07e03d4674febd5ab45fa938 # v4
+        with:
+          category: "/language:${{ matrix.language }}"
