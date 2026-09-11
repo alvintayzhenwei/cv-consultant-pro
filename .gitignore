@@ -34,3 +34,4 @@ htmlcov/
 Thumbs.db
 .idea/
 .vscode/
+.devswarm-temp/

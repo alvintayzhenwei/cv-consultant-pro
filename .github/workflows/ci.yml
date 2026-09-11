@@ -1,0 +1,68 @@
+name: CI
+
+# This repository owns its own CI. That is the reason it is a separate repository
+# rather than a directory inside the portfolio site: the site's own workflow
+# records that standalone published packages are being moved out of it, because
+# gating a site's CI on code that ships separately only creates churn.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: Lint and test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # Nothing in this job talks to git; do not leave a token sitting in
+          # .git/config for the rest of the run.
+          persist-credentials: false
+
+      - uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+
+      - name: Install
+        run: uv sync --extra dev
+
+      # Invoked as `python -m`, not via the console-script shim. On the
+      # maintainer's Windows machine an Application Control policy blocks
+      # spawning uv-installed `.exe` shims outright, so the shim form works in
+      # CI and fails locally. One invocation form that works in both beats a
+      # green pipeline nobody can reproduce.
+      - name: Lint
+        run: uv run python -m ruff check .
+
+      - name: Test
+        run: uv run python -m pytest
+
+  disclosure-boundary:
+    name: No corpus or kit is tracked
+    runs-on: ubuntu-latest
+    # Separate job, and deliberately not dependent on the tests: if a private
+    # corpus ever lands in this public repository, that must be shouted about
+    # even when the suite is red for an unrelated reason.
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Assert no corpus or generated kit is tracked
+        run: |
+          set -euo pipefail
+          offenders=$(git ls-files \
+            | grep -E '^(career-corpus(\..*)?\.yaml|corpus/|kits/|out/|.*\.linkedin\.zip|Profile\.pdf)$' \
+            | grep -v '^career-corpus\.example\.yaml$' || true)
+          if [ -n "$offenders" ]; then
+            echo "::error::private career data is tracked in a PUBLIC repository:"
+            echo "$offenders"
+            echo "Deleting the file does not undo this — the history retains it."
+            exit 1
+          fi
+          echo "Clean: no corpus, export or generated kit is tracked."

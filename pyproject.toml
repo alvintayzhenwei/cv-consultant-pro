@@ -1,0 +1,61 @@
+[project]
+name = "cv-tailor"
+version = "0.1.0"
+description = "Turn a job description into a tailored, ATS-safe application kit from a private career corpus — without inventing a single claim."
+readme = "README.md"
+requires-python = ">=3.11"
+license = { text = "MIT" }
+authors = [{ name = "Alvin Tay Zhenwei" }]
+keywords = ["cv", "resume", "ats", "job-description", "career"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: End Users/Desktop",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+]
+
+# Dependency ceilings are deliberate, not decoration.
+#
+# The sibling projects learned this the hard way: `mcp` was declared `>=1.12`
+# with no ceiling, mcp 2.0 renamed the module the server imported, and from then
+# on every fresh `uvx <pkg>` resolved the new major and died at import — so the
+# published install instructions could not work for anybody. The suite could not
+# catch it either, because a locked dev venv already held the old major; only a
+# fresh resolve picks up a new one.
+#
+# So: every dependency gets an upper bound, and `tests/test_packaging.py`
+# asserts the bound is still tied to the API this package actually uses. Raise a
+# floor deliberately when migrating; never widen a range to make an error go away.
+dependencies = [
+    "PyYAML>=6.0,<7",      # corpus format
+    "python-docx>=1.1,<2", # ATS-safe .docx rendering
+    "httpx>=0.27,<1",      # job-posting fetch
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0,<9",
+    "ruff>=0.6,<1",
+]
+
+[project.scripts]
+cv-tailor = "cv_tailor.cli:main"
+
+[project.urls]
+Repository = "https://github.com/alvintayzhenwei/cv-tailor"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/cv_tailor"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
