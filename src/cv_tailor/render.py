@@ -10,6 +10,7 @@ Three rules govern everything here:
 
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass, field
 
 from .corpus import Bullet, Corpus, Role
@@ -21,6 +22,12 @@ from .match import Scorecard
 # real length depends on font metrics, so the number is reported rather than
 # trusted.
 LINE_BUDGET = 46
+
+# Sixteen is about what a reader scans before the block becomes wallpaper.
+MAX_SKILLS = 16
+
+# Of those, at most this many may be skills the posting never asked for.
+MAX_SKILL_TAIL = 5
 
 
 @dataclass
@@ -83,24 +90,63 @@ def select(corpus: Corpus, card: Scorecard, *, budget: int = LINE_BUDGET) -> Sel
     )
     selection.estimated_lines = lines
 
-    matched = [name for row in card.rows + card.hard_filters for name in row.skill_names]
-    seen: set[str] = set()
-    ordered: list[str] = []
-    for name in matched:
-        if name not in seen:
-            seen.add(name)
-            ordered.append(name)
-    for skill in corpus.skills:
-        if skill.name not in seen:
-            ordered.append(skill.name)
-    selection.skills = ordered
+    # Rank by how many of THIS posting's requirements each skill answered, then
+    # cap. The first version appended every remaining corpus skill unranked,
+    # which put React second on an AI enablement role — a keyword block that
+    # reads as a list of everything you have ever touched persuades nobody.
+    demand: dict[str, int] = {}
+    for row in card.rows + card.hard_filters:
+        for name in row.skill_names:
+            demand[name] = demand.get(name, 0) + 1
+
+    # Skills the posting actually asked for come first, most-demanded first.
+    asked = sorted(demand, key=lambda n: -demand[n])
+
+    # Then a short tail of the best-evidenced remaining skills. The tail is
+    # capped hard: filling sixteen slots from the corpus in declaration order is
+    # what put React second on an AI enablement role. A skills block that lists
+    # everything you have ever touched reads as padding and dilutes the matches
+    # above it.
+    rest = [s for s in corpus.skills if s.name not in demand and s.evidence_refs]
+    rest.sort(key=lambda s: -len(s.evidence_refs))
+    tail = [s.name for s in rest][:MAX_SKILL_TAIL]
+
+    selection.skills = (asked + tail)[:MAX_SKILLS]
     return selection
+
+
+def _pick_summary(corpus: Corpus, card: Scorecard) -> str | None:
+    """Choose the closest authored summary. Never compose one.
+
+    Select-only applies to the opening paragraph as much as to a bullet: the
+    engine may pick among summaries the corpus already holds, and if it holds
+    none the CV opens without one rather than with an invention.
+    """
+    if not corpus.summaries:
+        return None
+    wanted: set[str] = set()
+    for row in card.rows + card.hard_filters:
+        wanted |= {w.lower() for w in re.findall(r"[a-z][a-z-]{2,}", row.requirement.text.lower())}
+
+    best = max(
+        corpus.summaries,
+        key=lambda s: sum(1 for t in s.tags if t.lower() in wanted),
+    )
+    return best.text
+
+
+# A bullet longer than this stops being read. The mechanism is dropped WHOLE
+# rather than truncated, for the same reason a role is: half a clause is worse
+# than no clause. The claim always survives, because it is the accomplishment.
+MAX_BULLET = 185
 
 
 def _bullet_line(bullet: Bullet) -> str:
     text = bullet.claim.rstrip(". ")
     if bullet.mechanism:
-        text = f"{text}, {bullet.mechanism.rstrip('. ')}"
+        combined = f"{text}, {bullet.mechanism.rstrip('. ')}"
+        if len(combined) <= MAX_BULLET:
+            text = combined
     metric = bullet.metric
     # A verified figure is appended only when the claim does not already carry it,
     # so a bullet never says "45 minutes to seconds (45 minutes to seconds)".
@@ -134,8 +180,14 @@ def render(corpus: Corpus, jd: JobDescription, card: Scorecard, selection: Selec
         out.append(jd.title.upper())
         out.append("")
 
+    summary = _pick_summary(corpus, card)
+    if summary:
+        out.append("SUMMARY")
+        out.append(summary)
+        out.append("")
+
     out.append("CORE SKILLS")
-    out.append(", ".join(selection.skills[:24]))
+    out.append(", ".join(selection.skills))
     out.append("")
 
     out.append("EXPERIENCE")
@@ -144,7 +196,8 @@ def render(corpus: Corpus, jd: JobDescription, card: Scorecard, selection: Selec
         head = f"{role.title.upper()} - {role.org}"
         if role.location:
             head += f", {role.location}"
-        out.append(f"{head} | {role.rendered_dates()}")
+        dates = role.rendered_dates()
+        out.append(f"{head} | {dates}" if dates else head)
         for bullet in bullets:
             out.append(_bullet_line(bullet))
             trace.append((bullet.id, bullet.claim))

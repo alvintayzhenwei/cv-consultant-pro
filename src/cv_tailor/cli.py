@@ -13,6 +13,7 @@ from collections.abc import Sequence
 from pathlib import Path
 
 from .corpus import CorpusError, load_corpus, resolve_corpus_path
+from .docx import write_docx
 from .jd import Tier, parse_jd
 from .match import Verdict, score
 from .render import AuditError, render, select
@@ -98,6 +99,7 @@ def _tailor(jd_path: str, corpus_path: str | None, out_dir: str, title: str | No
     out.mkdir(parents=True, exist_ok=True)
 
     (out / "cv.md").write_text(kit.markdown, encoding="utf-8")
+    write_docx(kit.markdown, out / "cv.docx")
 
     lines = ["# Match scorecard", ""]
     if card.hard_filters:
@@ -109,7 +111,7 @@ def _tailor(jd_path: str, corpus_path: str | None, out_dir: str, title: str | No
                 span = row.evidenced_years
                 lines.append(
                     f"  - threshold {row.requirement.years_required} years; corpus evidences "
-                    + (f"{span} years in a single role" if span else "no tagged span")
+                    + (f"{span} years across tagged roles (union of spans)" if span else "no tagged span")
                 )
             if row.evidence_ids:
                 lines.append(f"  - evidence: {', '.join(row.evidence_ids)}")

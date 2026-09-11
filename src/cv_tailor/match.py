@@ -63,7 +63,20 @@ class Scorecard:
 
 
 def _tokens(text: str) -> set[str]:
-    return {w for w in _WORD.findall(text.lower()) if w not in _STOPWORDS and len(w) > 2}
+    """Words worth matching on.
+
+    The character class admits '.', '/' and '-' so that node.js, ci/cd and
+    hands-on survive as single tokens. They must be stripped at the EDGES
+    though: nearly every requirement line ends in a full stop, and without this
+    the last word of every requirement tokenised as 'enablement.' and matched
+    nothing. That silently degraded every score in the first real run.
+    """
+    out: set[str] = set()
+    for raw in _WORD.findall(text.lower()):
+        word = raw.strip("./-")
+        if word and word not in _STOPWORDS and len(word) > 2:
+            out.add(word)
+    return out
 
 
 def _phrase_in(needle: str, haystack: str) -> bool:
@@ -89,24 +102,57 @@ def _today() -> YearMonth:
 
 
 def _evidenced_years(corpus: Corpus, req_tokens: set[str]) -> float | None:
-    """Total months spanned by roles whose tags or bullets touch the requirement.
+    """Calendar time the corpus evidences for a requirement — the UNION of spans.
 
-    Reported alongside the posting's threshold rather than compared to it. The
-    engine says what the corpus evidences; whether that clears the bar is the
-    reader's call, because overlapping roles make any automatic sum arguable.
+    The first version took the longest single role, which reported "4.9 years"
+    for someone with twelve years of continuous history, because three concurrent
+    titles at one employer each looked short. Summing them instead would
+    double-count the overlap and claim more than the calendar allows. Union does
+    neither: concurrent roles collapse, gapped ones add.
+
+    Still reported alongside the threshold rather than compared to it. Whether a
+    span clears a bar is the reader's call.
     """
     now = _today()
-    months = 0
+    spans: list[tuple[int, int]] = []
     for role in corpus.roles:
         touches = any(t.lower() in req_tokens for t in role.tags) or any(
             _bullet_hit(b, req_tokens, "") > 0 for b in role.bullets
         )
-        if not touches:
+        if not touches or role.start is None:
             continue
-        span = role.months(now=now)
-        if span:
-            months = max(months, span)
+        end = now if role.is_current else role.end
+        if end is None:
+            continue
+        spans.append((role.start.year * 12 + role.start.month, end.year * 12 + end.month))
+
+    if not spans:
+        return None
+
+    spans.sort()
+    months = 0
+    cur_start, cur_end = spans[0]
+    for start, end in spans[1:]:
+        if start <= cur_end:  # overlapping or contiguous
+            cur_end = max(cur_end, end)
+        else:
+            months += cur_end - cur_start
+            cur_start, cur_end = start, end
+    months += cur_end - cur_start
     return round(months / 12, 1) if months else None
+
+
+# A requirement phrased "A and B" is two demands. Splitting on these keeps the
+# original wording for display while scoring each half, so half a match cannot
+# read as a whole one.
+_SPLIT = re.compile(r"\bboth\b|(?:,\s*)?\band\b|;|(?:,\s*)?\bas well as\b", re.IGNORECASE)
+
+
+def _parts(text: str) -> list[str]:
+    """Split a compound requirement into the demands it actually makes."""
+    pieces = [p.strip(" ,.;") for p in _SPLIT.split(text)]
+    substantive = [p for p in pieces if len(_tokens(p)) >= 2]
+    return substantive if len(substantive) > 1 else [text]
 
 
 def score(jd: JobDescription, corpus: Corpus) -> Scorecard:
@@ -115,43 +161,46 @@ def score(jd: JobDescription, corpus: Corpus) -> Scorecard:
     for req in jd.requirements:
         req_tokens = _tokens(req.text)
 
-        matched_skills = [s for s in corpus.skills if _skill_matches(s, req.text, req_tokens)]
-        skill_evidence: list[str] = []
-        for skill in matched_skills:
-            skill_evidence.extend(skill.evidence_refs)
+        # A degree is answered by the education section, not by work bullets.
+        # Citing bullets here produced nonsense — two unrelated delivery entries
+        # offered as evidence of a Computer Science degree.
+        if req.is_degree:
+            card.rows.append(_degree_row(req, corpus))
+            continue
 
-        hits = sorted(
-            (
-                (bullet, _bullet_hit(bullet, req_tokens, req.text))
-                for bullet in corpus.all_bullets()
-            ),
-            key=lambda pair: pair[1],
-            reverse=True,
-        )
-        strong_hits = [b for b, s in hits if s >= 3]
-        weak_hits = [b for b, s in hits if 0 < s < 3]
+        # An eligibility filter — visa, citizenship, location, language — is not
+        # something a bullet can evidence. Matching one against the corpus found
+        # "Singapore" in an unrelated role and called it proof of a right to work.
+        if req.is_hard_filter and req.years_required is None:
+            card.hard_filters.append(
+                Row(
+                    requirement=req,
+                    verdict=Verdict.PARTIAL,
+                    note="eligibility — answer this yourself; no corpus entry can evidence it",
+                )
+            )
+            continue
 
-        evidence = list(dict.fromkeys(skill_evidence + [b.id for b in strong_hits]))[:4]
+        part_results = [_score_part(part, corpus) for part in _parts(req.text)]
+        verdict = min((r[0] for r in part_results), key=_RANK.__getitem__)
 
-        if skill_evidence and matched_skills or len(strong_hits) >= 2:
-            verdict = Verdict.STRONG
-        elif strong_hits or weak_hits:
-            verdict = Verdict.PARTIAL
-            evidence = evidence or [b.id for b in weak_hits[:2]]
-        else:
-            verdict = Verdict.GAP
-            evidence = []
+        evidence: list[str] = []
+        skill_names: list[str] = []
+        for _v, ev, names in part_results:
+            evidence.extend(ev)
+            skill_names.extend(names)
+        evidence = list(dict.fromkeys(evidence))[:4]
+        skill_names = list(dict.fromkeys(skill_names))
 
         row = Row(
             requirement=req,
             verdict=verdict,
-            evidence_ids=evidence,
-            skill_names=[s.name for s in matched_skills],
+            evidence_ids=evidence if verdict is not Verdict.GAP else [],
+            skill_names=skill_names,
             evidenced_years=_evidenced_years(corpus, req_tokens) if req.years_required else None,
         )
-
-        if req.is_degree and verdict is Verdict.GAP and corpus.education:
-            row.note = "check against the education section by hand — degrees are not tagged"
+        if len(part_results) > 1 and verdict is not Verdict.STRONG:
+            row.note = "compound requirement — scored by its weakest part"
 
         if req.is_hard_filter:
             card.hard_filters.append(row)
@@ -161,6 +210,57 @@ def score(jd: JobDescription, corpus: Corpus) -> Scorecard:
     # Every requirement appears exactly once overall; a caller wanting the full
     # list iterates rows + hard_filters.
     return card
+
+
+_RANK = {Verdict.GAP: 0, Verdict.PARTIAL: 1, Verdict.STRONG: 2}
+
+
+def _degree_row(req: Requirement, corpus: Corpus) -> Row:
+    if not corpus.education:
+        return Row(requirement=req, verdict=Verdict.GAP, note="no education recorded in the corpus")
+    held = corpus.education[0]
+    text = req.text.lower()
+    wants_post_grad = "master" in text or "phd" in text or "ph.d" in text
+    has_post_grad = any(
+        "master" in e.qualification.lower() or "phd" in e.qualification.lower()
+        for e in corpus.education
+    )
+    verdict = Verdict.STRONG
+    if wants_post_grad and not has_post_grad:
+        verdict = Verdict.PARTIAL if "or equivalent" in text or "bachelor" in text else Verdict.GAP
+    return Row(
+        requirement=req,
+        verdict=verdict,
+        note=f"{held.qualification} - {held.institution}",
+    )
+
+
+def _score_part(part: str, corpus: Corpus) -> tuple[Verdict, list[str], list[str]]:
+    tokens = _tokens(part)
+
+    matched_skills = [s for s in corpus.skills if _skill_matches(s, part, tokens)]
+    skill_evidence: list[str] = []
+    for skill in matched_skills:
+        skill_evidence.extend(skill.evidence_refs)
+
+    hits = sorted(
+        ((bullet, _bullet_hit(bullet, tokens, part)) for bullet in corpus.all_bullets()),
+        key=lambda pair: pair[1],
+        reverse=True,
+    )
+    strong_hits = [b for b, s in hits if s >= 3]
+    weak_hits = [b for b, s in hits if 0 < s < 3]
+
+    evidence = list(dict.fromkeys(skill_evidence + [b.id for b in strong_hits]))[:4]
+    names = [s.name for s in matched_skills]
+
+    if matched_skills and skill_evidence:
+        return Verdict.STRONG, evidence, names
+    if len(strong_hits) >= 2:
+        return Verdict.STRONG, evidence, names
+    if strong_hits or weak_hits:
+        return Verdict.PARTIAL, evidence or [b.id for b in weak_hits[:2]], names
+    return Verdict.GAP, [], names
 
 
 def _skill_matches(skill, req_text: str, req_tokens: set[str]) -> bool:
