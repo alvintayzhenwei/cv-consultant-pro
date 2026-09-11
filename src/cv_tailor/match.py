@@ -39,7 +39,16 @@ class Verdict(str, Enum):
 class Row:
     requirement: Requirement
     verdict: Verdict
+    #: The evidence shown on the scorecard, capped so a row stays readable.
     evidence_ids: list[str] = field(default_factory=list)
+    #: Every bullet that actually supports this requirement, uncapped.
+    #:
+    #: Kept separate because the two lists answer different questions, and
+    #: conflating them was a real bug: relevance read the CAPPED list, so a
+    #: bullet that genuinely matched could be left off the CV purely because it
+    #: came fifth in something formatted for a human to read. A presentation
+    #: limit must never decide content.
+    all_evidence_ids: list[str] = field(default_factory=list)
     skill_names: list[str] = field(default_factory=list)
     evidenced_years: float | None = None
     note: str | None = None
@@ -54,10 +63,13 @@ class Scorecard:
         return [r for r in self.rows if r.verdict is verdict]
 
     def relevance(self) -> dict[str, int]:
-        """How many requirements each bullet helped satisfy — drives selection."""
+        """How many requirements each bullet helped satisfy — drives selection.
+
+        Reads the UNCAPPED list. See Row.all_evidence_ids for why.
+        """
         counts: dict[str, int] = {}
         for row in self.rows + self.hard_filters:
-            for bullet_id in row.evidence_ids:
+            for bullet_id in row.all_evidence_ids:
                 counts[bullet_id] = counts.get(bullet_id, 0) + 1
         return counts
 
@@ -189,13 +201,15 @@ def score(jd: JobDescription, corpus: Corpus) -> Scorecard:
         for _v, ev, names in part_results:
             evidence.extend(ev)
             skill_names.extend(names)
-        evidence = list(dict.fromkeys(evidence))[:4]
+        evidence = list(dict.fromkeys(evidence))
         skill_names = list(dict.fromkeys(skill_names))
+        supported = verdict is not Verdict.GAP
 
         row = Row(
             requirement=req,
             verdict=verdict,
-            evidence_ids=evidence if verdict is not Verdict.GAP else [],
+            evidence_ids=evidence[:EVIDENCE_SHOWN] if supported else [],
+            all_evidence_ids=evidence if supported else [],
             skill_names=skill_names,
             evidenced_years=_evidenced_years(corpus, req_tokens) if req.years_required else None,
         )
@@ -213,6 +227,10 @@ def score(jd: JobDescription, corpus: Corpus) -> Scorecard:
 
 
 _RANK = {Verdict.GAP: 0, Verdict.PARTIAL: 1, Verdict.STRONG: 2}
+
+# How many evidence ids a scorecard row shows before it stops being scannable.
+# A DISPLAY limit only — see Row.all_evidence_ids.
+EVIDENCE_SHOWN = 4
 
 
 def _degree_row(req: Requirement, corpus: Corpus) -> Row:
@@ -251,7 +269,7 @@ def _score_part(part: str, corpus: Corpus) -> tuple[Verdict, list[str], list[str
     strong_hits = [b for b, s in hits if s >= 3]
     weak_hits = [b for b, s in hits if 0 < s < 3]
 
-    evidence = list(dict.fromkeys(skill_evidence + [b.id for b in strong_hits]))[:4]
+    evidence = list(dict.fromkeys(skill_evidence + [b.id for b in strong_hits]))
     names = [s.name for s in matched_skills]
 
     if matched_skills and skill_evidence:

@@ -29,6 +29,26 @@ MAX_SKILLS = 16
 # Of those, at most this many may be skills the posting never asked for.
 MAX_SKILL_TAIL = 5
 
+# Roles shorter than a year are dropped unless they are the only evidence for
+# something the posting asked for. Twelve months is the point at which a role
+# stops reading as a stint and starts reading as a chapter.
+MIN_ROLE_MONTHS = 12
+
+
+def _sole_evidence_bullets(card: Scorecard) -> set[str]:
+    """Bullets that are the ONLY thing answering some requirement.
+
+    These keep their role alive however short it was. The duration rule is a
+    tie-breaker for space, not a judgement about what counts as experience —
+    losing the single piece of evidence for a requirement to save one line is a
+    bad trade every time.
+    """
+    sole: set[str] = set()
+    for row in card.rows + card.hard_filters:
+        if len(row.evidence_ids) == 1:
+            sole.add(row.evidence_ids[0])
+    return sole
+
 
 @dataclass
 class Selection:
@@ -53,12 +73,36 @@ class AuditError(Exception):
     """Rendering produced something that does not trace to the corpus."""
 
 
+def _bullet_rank(bullet: Bullet, relevance: dict[str, int]) -> tuple[int, int]:
+    """Relevance first, then whether the claim is measured.
+
+    Two bullets can match a posting equally and be worth very different amounts.
+    "Built automation that made processes at least 50% faster" and "learned the
+    languages to build that tooling" carried the same tags, and the CV rendered
+    the second — an activity where an outcome was available. A verified figure
+    is the one signal that separates them, and it is exactly what a recruiter
+    scans for.
+
+    An unverified metric scores between the two: the bullet is shaped like an
+    accomplishment and is honest that the number is missing, which is better
+    than no outcome at all but worse than a real one.
+    """
+    weight = relevance.get(bullet.id, 0)
+    if bullet.metric is None:
+        measured = 0
+    elif bullet.metric.verified:
+        measured = 2
+    else:
+        measured = 1
+    return (weight, measured)
+
+
 def select(corpus: Corpus, card: Scorecard, *, budget: int = LINE_BUDGET) -> Selection:
     relevance = card.relevance()
 
     scored_roles: list[tuple[Role, list[Bullet], int]] = []
     for role in corpus.roles:
-        ranked = sorted(role.bullets, key=lambda b: relevance.get(b.id, 0), reverse=True)
+        ranked = sorted(role.bullets, key=lambda b: _bullet_rank(b, relevance), reverse=True)
         kept = [b for b in ranked if relevance.get(b.id, 0) > 0]
         weight = sum(relevance.get(b.id, 0) for b in role.bullets)
         scored_roles.append((role, kept, weight))
@@ -68,12 +112,27 @@ def select(corpus: Corpus, card: Scorecard, *, budget: int = LINE_BUDGET) -> Sel
         key=lambda item: (item[2], item[0].start.year if item[0].start else 0), reverse=True
     )
 
+    # A role shorter than this has to earn its line by being the ONLY evidence
+    # for something. Six months as an intern was surviving while a two-year role
+    # was dropped, because relevance counted hits and nothing else.
+    sole_evidence = _sole_evidence_bullets(card)
+
     selection = Selection()
     lines = 0
     for role, kept, weight in scored_roles:
         if weight == 0 or not kept:
             selection.dropped_roles.append(role.id)
             continue
+
+        months = role.months(now=None)
+        if (
+            months is not None
+            and months < MIN_ROLE_MONTHS
+            and not any(b.id in sole_evidence for b in kept)
+        ):
+            selection.dropped_roles.append(role.id)
+            continue
+
         room = budget - lines - 1  # one line for the role heading
         if room <= 0:
             selection.dropped_roles.append(role.id)

@@ -90,6 +90,52 @@ application:
 
 Bullets follow the XYZ form — accomplished X, as measured by Y, by doing Z.
 
+## Repository security
+
+This repository is public and the corpus is not, so the boundary is enforced in four
+places rather than trusted once: `.gitignore` as the first commit, a pre-push hook that
+inspects the tip being pushed, a CI job that fails if anything corpus-shaped is tracked,
+and a test asserting the ignore rules still say what they should.
+
+Beyond that: Dependabot version updates for the `uv` project and for the workflows
+themselves, weekly CodeQL on `python` and `actions`, `pip-audit` against the resolved
+lockfile on every PR and weekly, and dependency review on PRs. Every action is pinned to
+a full commit SHA, because a tag is a mutable pointer the upstream owner can repoint.
+
+Three of these are repository **settings** rather than files, and this repo cannot turn
+them on for itself — enable them under *Settings → Code security*:
+
+- **Dependabot alerts** and **Dependabot security updates** — `dependabot.yml` configures
+  version updates only; the advisory-driven ones are a separate switch.
+- **Secret scanning** and **push protection** — push protection is the one that matters:
+  it blocks a credential at push time rather than alerting after it is public.
+
+### Why there is no CODEOWNERS file
+
+Deliberate, and worth stating because adding one looks like an obvious improvement.
+
+GitHub never allows a pull request's author to approve their own PR — that is a platform
+rule no setting overrides. With branch protection set to **Require review from Code
+Owners** and a single maintainer, a CODEOWNERS file naming that maintainer would make
+every pull request permanently unmergeable, short of an admin bypass on each one.
+
+With no CODEOWNERS file, no path has an owner, so the rule has nothing to require and the
+branch stays protected in every other respect. If a second maintainer ever joins, add the
+file then.
+
+### Required status checks
+
+Branch protection has *Require status checks to pass* enabled but no checks selected yet;
+GitHub can only offer a check it has already seen. After the first pull request runs,
+add these by name under *Settings → Branches*:
+
+- `Lint and test`
+- `No corpus or kit is tracked`
+- `pip-audit`
+
+`CodeQL (python)` and `CodeQL (actions)` are worth adding once you have seen them pass;
+CodeQL on a scheduled run can lag a fast-moving PR, so add them knowing that.
+
 ## Status
 
 Early. The corpus schema and validator come first, because a structured, validated career
