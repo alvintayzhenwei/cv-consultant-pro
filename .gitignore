@@ -1,0 +1,36 @@
+# ── The disclosure boundary ──────────────────────────────────────────────────
+# This repository is PUBLIC. The corpus holds real team sizes, client names,
+# internal project names and unverified figures; a generated kit embeds that
+# same content in a rendered CV. Neither may ever be committed — and neither is
+# un-leaked by a later deletion, since the history keeps it.
+#
+# This file is deliberately the FIRST commit in the repository, before any
+# other file exists, so there is no window in which the ignore rules are absent.
+career-corpus.yaml
+career-corpus.*.yaml
+!career-corpus.example.yaml
+corpus/
+kits/
+out/
+*.linkedin.zip
+Profile.pdf
+
+# ── Python ───────────────────────────────────────────────────────────────────
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+*.egg-info/
+dist/
+build/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.coverage
+htmlcov/
+
+# ── Editors / OS ─────────────────────────────────────────────────────────────
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
