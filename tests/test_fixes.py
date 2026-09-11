@@ -168,7 +168,7 @@ def test_the_docx_is_single_column_with_no_tables_or_images(tmp_path: Path) -> N
     )
     kit = render(corpus, jd, card, select(corpus, card))
     target = tmp_path / "cv.docx"
-    write_docx(kit.markdown, target)
+    write_docx(kit.document, target)
 
     doc = docx.Document(str(target))
     assert doc.tables == [], "a table is the most common cause of a parsing failure"

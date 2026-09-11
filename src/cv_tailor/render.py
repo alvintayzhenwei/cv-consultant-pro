@@ -14,6 +14,7 @@ import re
 from dataclasses import dataclass, field
 
 from .corpus import Bullet, Corpus, Role
+from .document import CvDocument, RenderedRole
 from .jd import JobDescription
 from .match import Scorecard
 
@@ -64,6 +65,9 @@ class Selection:
 @dataclass
 class Kit:
     markdown: str
+    #: The same CV as structure. Every other format renders from this, never
+    #: from the markdown — see document.py.
+    document: CvDocument
     traceability: list[tuple[str, str]]
     placeholders: list[tuple[str, str]]
     selection: Selection
@@ -200,7 +204,7 @@ def _pick_summary(corpus: Corpus, card: Scorecard) -> str | None:
 MAX_BULLET = 185
 
 
-def _bullet_line(bullet: Bullet) -> str:
+def _bullet_text(bullet: Bullet) -> str:
     text = bullet.claim.rstrip(". ")
     if bullet.mechanism:
         combined = f"{text}, {bullet.mechanism.rstrip('. ')}"
@@ -216,74 +220,100 @@ def _bullet_line(bullet: Bullet) -> str:
         and metric.value.lower() not in text.lower()
     ):
         text = f"{text} ({metric.value})"
-    return f"- {text}."
+    return f"{text}."
 
 
-def render(corpus: Corpus, jd: JobDescription, card: Scorecard, selection: Selection) -> Kit:
+def build_document(
+    corpus: Corpus, jd: JobDescription, card: Scorecard, selection: Selection
+) -> tuple[CvDocument, list[tuple[str, str]], list[tuple[str, str]]]:
+    """Assemble the CV as structure, plus its traceability and placeholder lists."""
     p = corpus.person
-    out: list[str] = []
     trace: list[tuple[str, str]] = []
     placeholders: list[tuple[str, str]] = []
 
-    out.append(p.name.upper())
-    contact = " | ".join(x for x in [p.location, p.email, p.phone] if x)
-    if contact:
-        out.append(contact)
-    if p.links:
-        out.append(" | ".join(p.links.values()))
-    if p.languages:
-        out.append("Languages: " + ", ".join(p.languages))
-    out.append("")
-
-    if jd.title:
-        out.append(jd.title.upper())
-        out.append("")
-
-    summary = _pick_summary(corpus, card)
-    if summary:
-        out.append("SUMMARY")
-        out.append(summary)
-        out.append("")
-
-    out.append("CORE SKILLS")
-    out.append(", ".join(selection.skills))
-    out.append("")
-
-    out.append("EXPERIENCE")
-    out.append("")
+    roles: list[RenderedRole] = []
     for role, bullets in selection.roles:
-        head = f"{role.title.upper()} - {role.org}"
-        if role.location:
-            head += f", {role.location}"
-        dates = role.rendered_dates()
-        out.append(f"{head} | {dates}" if dates else head)
+        lines: list[str] = []
         for bullet in bullets:
-            out.append(_bullet_line(bullet))
+            lines.append(_bullet_text(bullet))
             trace.append((bullet.id, bullet.claim))
             if bullet.metric is not None and not bullet.metric.verified:
                 placeholders.append((bullet.id, bullet.metric.placeholder or ""))
+        roles.append(
+            RenderedRole(
+                title=role.title,
+                org=role.org,
+                dates=role.rendered_dates(),
+                location=role.location,
+                bullets=lines,
+            )
+        )
+
+    education: list[str] = []
+    for edu in corpus.education:
+        spec = f", {edu.specialisation}" if edu.specialisation else ""
+        ending = f" | {edu.end.render()}" if edu.end else ""
+        education.append(f"{edu.qualification}{spec} - {edu.institution}{ending}")
+
+    document = CvDocument(
+        name=p.name,
+        contact=[x for x in [p.location, p.email, p.phone] if x],
+        links=list(p.links.values()),
+        languages=list(p.languages),
+        target_title=jd.title,
+        summary=_pick_summary(corpus, card),
+        skills=list(selection.skills),
+        roles=roles,
+        education=education,
+        certifications=[c.name for c in corpus.certifications if c.held],
+        artifacts=[a.name for a in corpus.artifacts],
+    )
+    return document, trace, placeholders
+
+
+def _markdown(doc: CvDocument) -> str:
+    out: list[str] = [doc.name.upper()]
+    if doc.contact:
+        out.append(" | ".join(doc.contact))
+    if doc.links:
+        out.append(" | ".join(doc.links))
+    if doc.languages:
+        out.append("Languages: " + ", ".join(doc.languages))
+    out.append("")
+
+    if doc.target_title:
+        out += [doc.target_title.upper(), ""]
+    if doc.summary:
+        out += ["SUMMARY", doc.summary, ""]
+    if doc.skills:
+        out += ["CORE SKILLS", ", ".join(doc.skills), ""]
+
+    out += ["EXPERIENCE", ""]
+    for role in doc.roles:
+        head = f"{role.title.upper()} - {role.org}"
+        if role.location:
+            head += f", {role.location}"
+        out.append(f"{head} | {role.dates}" if role.dates else head)
+        out += [f"- {b}" for b in role.bullets]
         out.append("")
 
-    if corpus.education:
-        out.append("EDUCATION")
-        for edu in corpus.education:
-            end = edu.end.render() if edu.end else "TODO"
-            spec = f", {edu.specialisation}" if edu.specialisation else ""
-            out.append(f"{edu.qualification}{spec} - {edu.institution} | {end}")
-        out.append("")
+    if doc.education:
+        out += ["EDUCATION", *doc.education, ""]
+    if doc.certifications:
+        out += ["CERTIFICATIONS", " | ".join(doc.certifications), ""]
 
-    held = [c.name for c in corpus.certifications if c.held]
-    if held:
-        out.append("CERTIFICATIONS")
-        out.append(" | ".join(held))
-        out.append("")
+    return "\n".join(out).rstrip() + "\n"
 
-    markdown = "\n".join(out).rstrip() + "\n"
+
+def render(corpus: Corpus, jd: JobDescription, card: Scorecard, selection: Selection) -> Kit:
+    document, trace, placeholders = build_document(corpus, jd, card, selection)
+    markdown = _markdown(document)
 
     _audit(markdown, corpus, selection)
 
     return Kit(
         markdown=markdown,
+        document=document,
         traceability=trace,
         placeholders=placeholders,
         selection=selection,

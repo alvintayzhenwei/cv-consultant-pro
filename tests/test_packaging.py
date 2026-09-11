@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import re
 import subprocess
+import sys
 import tomllib
 from pathlib import Path
 
@@ -64,18 +65,40 @@ def test_the_readme_test_count_badge_is_current() -> None:
     That is precisely the failure this project refuses to allow on a CV, so it
     is not allowed on its own README either. The badge is static because there
     is no free service that counts tests; it is honest because this asserts it.
+
+    The count comes from pytest's own collection, not from counting `def test_`
+    lines. The first version counted definitions, which disagreed with the
+    number pytest reports the moment a parametrised test existed — a guard that
+    is itself wrong about the figure it guards is worse than no guard.
     """
     readme = (ROOT / "README.md").read_text(encoding="utf-8")
     match = re.search(r"tests-(\d+)%20passing", readme)
     assert match, "the README must carry a tests-N%20passing badge"
     claimed = int(match.group(1))
 
-    actual = 0
-    for path in (ROOT / "tests").glob("test_*.py"):
-        actual += len(re.findall(r"^def test_", path.read_text(encoding="utf-8"), re.MULTILINE))
+    result = subprocess.run(
+        [sys.executable, "-m", "pytest", "--collect-only", "-q", "--no-header", "-p", "no:cacheprovider"],
+        cwd=ROOT,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    # Two output shapes in the wild: a single "N tests collected" summary, and
+    # (this pytest) one "path: N" line per file. Handle both rather than skip —
+    # a guard that silently skips is a guard that is not running.
+    total = re.search(r"(\d+)\s+tests? collected", result.stdout)
+    if total:
+        actual = int(total.group(1))
+    else:
+        per_file = re.findall(r"^\S+\.py:\s*(\d+)$", result.stdout, re.MULTILINE)
+        assert per_file, (
+            "could not read a collection count from pytest, so this guard is not "
+            f"running. Output tail:\n{result.stdout[-400:]}"
+        )
+        actual = sum(int(n) for n in per_file)
 
     assert claimed == actual, (
-        f"the README badge claims {claimed} tests, but {actual} exist. "
+        f"the README badge claims {claimed} tests, but pytest collects {actual}. "
         "Update the badge in README.md."
     )
 

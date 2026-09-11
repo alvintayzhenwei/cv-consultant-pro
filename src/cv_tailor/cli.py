@@ -1,8 +1,8 @@
 """Command line entry point.
 
-Only `validate` for now. It is the command CI runs and the one worth having
-before anything else: a corpus that has not been validated is not a corpus the
-rest of the pipeline may assume anything about.
+    cv-tailor validate [corpus]        check a career corpus
+    cv-tailor templates                list the CV layouts
+    cv-tailor tailor <jd> [--template] build an application kit
 """
 
 from __future__ import annotations
@@ -17,6 +17,7 @@ from .docx import write_docx
 from .jd import Tier, parse_jd
 from .match import Verdict, score
 from .render import AuditError, render, select
+from .templates import TEMPLATES, get_template, render_html
 
 
 def _use_utf8_output() -> None:
@@ -68,7 +69,27 @@ def _validate(path: str | None) -> int:
 _CHIP = {Verdict.STRONG: "STRONG ", Verdict.PARTIAL: "PARTIAL", Verdict.GAP: "GAP    "}
 
 
-def _tailor(jd_path: str, corpus_path: str | None, out_dir: str, title: str | None) -> int:
+def _templates() -> int:
+    print("Available layouts:")
+    print()
+    for tpl in TEMPLATES.values():
+        flag = "portal-safe" if tpl.ats_safe else "HUMAN CHANNEL ONLY"
+        print(f"  {tpl.id:<9} {tpl.name:<9} [{flag}]")
+        print(f"  {'':<9} {tpl.blurb}")
+        print()
+    print("  A portal-safe layout is single column with no sidebar, icons or images:")
+    print("  submit those. The others look better by doing what a parser mishandles,")
+    print("  so send them to a person directly. No layout carries a photograph.")
+    return 0
+
+
+def _tailor(
+    jd_path: str,
+    corpus_path: str | None,
+    out_dir: str,
+    title: str | None,
+    template_id: str | None,
+) -> int:
     try:
         corpus = load_corpus(resolve_corpus_path(corpus_path))
     except CorpusError as exc:
@@ -98,8 +119,11 @@ def _tailor(jd_path: str, corpus_path: str | None, out_dir: str, title: str | No
     out = Path(out_dir)
     out.mkdir(parents=True, exist_ok=True)
 
+    template = get_template(template_id)
+
     (out / "cv.md").write_text(kit.markdown, encoding="utf-8")
-    write_docx(kit.markdown, out / "cv.docx")
+    write_docx(kit.document, out / "cv.docx")
+    (out / "cv.html").write_text(render_html(kit.document, template), encoding="utf-8")
 
     lines = ["# Match scorecard", ""]
     if card.hard_filters:
@@ -158,6 +182,12 @@ def _tailor(jd_path: str, corpus_path: str | None, out_dir: str, title: str | No
         print(f"  dropped: {', '.join(selection.dropped_roles)}")
     if kit.placeholders:
         print(f"  {len(kit.placeholders)} placeholder(s) still to fill")
+
+    channel = "portal-safe" if template.ats_safe else "HUMAN CHANNEL ONLY"
+    print(f"  layout: {template.name} ({channel})")
+    if not template.ats_safe:
+        print("    cv.html uses a layout a parser mishandles. Submit cv.docx through a")
+        print("    portal; send cv.html, printed to PDF, to a person directly.")
     return 0
 
 
@@ -182,14 +212,25 @@ def main(argv: Sequence[str] | None = None) -> int:
     tailor.add_argument("--corpus", default=None, help="corpus file (default: as for validate)")
     tailor.add_argument("--out", default="kits/latest", help="output directory")
     tailor.add_argument("--title", default=None, help="role title for the CV heading")
+    tailor.add_argument(
+        "--template",
+        default=None,
+        choices=sorted(TEMPLATES),
+        help="HTML layout for cv.html (default: signal). See the templates command.",
+    )
+
+    sub.add_parser("templates", help="list the available CV layouts")
 
     args = parser.parse_args(argv)
 
     if args.command == "validate":
         return _validate(args.path)
 
+    if args.command == "templates":
+        return _templates()
+
     if args.command == "tailor":
-        return _tailor(args.jd, args.corpus, args.out, args.title)
+        return _tailor(args.jd, args.corpus, args.out, args.title, args.template)
 
     parser.error(f"unknown command: {args.command}")  # pragma: no cover
     return 2  # pragma: no cover
