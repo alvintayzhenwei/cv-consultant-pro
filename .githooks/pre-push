@@ -1,0 +1,107 @@
+#!/bin/sh
+# Refuse a push whose destination is main, and refuse any push carrying private
+# career data.
+#
+# Two guards, because this repository has two ways to go wrong.
+#
+# 1. DESTINATION. main is reached by merging a Pull Request, never by a push from
+#    a working copy. This mirrors the sibling site repository's own hook, which
+#    exists because a branch created with `-B origin/main` inherited main as its
+#    upstream and a bare `git push` then sent a commit straight to production.
+#
+# 2. CONTENT. This repository is PUBLIC and the career corpus is not. .gitignore
+#    and a CI job both guard that, but CI only tells you after the push — and a
+#    push is exactly the moment a leak becomes irreversible, because deleting the
+#    file afterwards does not remove it from the history or from anyone's clone.
+#    So this check runs BEFORE the data leaves the machine.
+#
+# Enable once per clone (git does not use a version-controlled hooks directory
+# until told where to look):
+#
+#     git config core.hooksPath .githooks
+#
+# Deliberate override for the destination check only:
+#
+#     ALLOW_MAIN_PUSH=1 git push origin main
+#
+# There is deliberately NO override for the content check.
+#
+# Git passes one line per ref on stdin:
+#     <local ref> <local sha> <remote ref> <remote sha>
+
+blocked=""
+leaked=""
+
+while read -r _local_ref local_sha remote_ref _remote_sha; do
+  # A deletion has an all-zero local sha. Refusing those would be a different and
+  # unhelpful rule, so only additions and updates are considered.
+  case "$local_sha" in
+    *[!0]*) ;;
+    *) continue ;;
+  esac
+
+  if [ -z "$ALLOW_MAIN_PUSH" ]; then
+    case "$remote_ref" in
+      refs/heads/main|refs/heads/master) blocked="$remote_ref" ;;
+    esac
+  fi
+
+  # Look at every file present at the tip being pushed. Checking the tip rather
+  # than the diff is deliberate: a file added in one commit and removed in the
+  # next is still in the history, but a file sitting at the tip is the case that
+  # is both most common and most certainly wrong.
+  found=$(git ls-tree -r --name-only "$local_sha" 2>/dev/null \
+    | grep -E '^(career-corpus(\..*)?\.yaml|corpus/|kits/|out/|.*\.linkedin\.zip|Profile\.pdf)$' \
+    | grep -v '^career-corpus\.example\.yaml$' || true)
+  if [ -n "$found" ]; then
+    leaked="$leaked$found
+"
+  fi
+done
+
+if [ -n "$leaked" ]; then
+  cat >&2 <<EOF
+
+  Push refused: this carries private career data into a PUBLIC repository.
+
+$leaked
+  Only career-corpus.example.yaml — which holds fictional data — belongs here.
+
+  This is not recoverable by deleting the file in a later commit: the history
+  keeps it, and so does every clone and fork made in the meantime. Remove it from
+  the commits themselves before pushing.
+
+EOF
+  exit 1
+fi
+
+if [ -n "$blocked" ]; then
+  cat >&2 <<EOF
+
+  Push refused: this would write directly to ${blocked#refs/heads/}.
+
+  main is reached by merging a Pull Request. A push from a working copy skips the
+  review gate entirely.
+
+  If you meant to push a FEATURE branch, the destination is probably wrong — the
+  branch has most likely inherited main as its upstream:
+
+      git config --get branch.\$(git branch --show-current).merge
+
+  If that prints refs/heads/main, repoint it:
+
+      git push -u origin \$(git branch --show-current)
+
+  To avoid the trap when creating branches:
+
+      git checkout --no-track -b <name> origin/main
+
+  If you genuinely intend to push to main:
+
+      ALLOW_MAIN_PUSH=1 git push ...
+
+EOF
+  exit 1
+fi
+
+exit 0
