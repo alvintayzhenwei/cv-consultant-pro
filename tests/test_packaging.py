@@ -14,8 +14,11 @@ for, which is the drift that actually bites.
 from __future__ import annotations
 
 import re
+import subprocess
 import tomllib
 from pathlib import Path
+
+import pytest
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -56,14 +59,30 @@ def test_gitignore_is_the_disclosure_boundary() -> None:
 
 
 def test_no_real_corpus_is_tracked() -> None:
-    """A belt-and-braces check that nothing corpus-shaped slipped into the tree."""
-    tracked_corpus = [
-        p.name
-        for p in ROOT.glob("career-corpus*.yaml")
-        if p.name != "career-corpus.example.yaml"
+    """Nothing corpus-shaped may be TRACKED by git.
+
+    The first version of this test globbed the filesystem, which was wrong in a
+    way that mattered: a real corpus is *supposed* to sit in the working tree —
+    that is where the engine reads it from — so the test failed for every user
+    the moment they had one, including the author. Presence is correct; being
+    tracked is the defect. Ask git, not the disk.
+    """
+    result = subprocess.run(
+        ["git", "ls-files", "career-corpus*.yaml", "corpus", "kits", "out"],
+        cwd=ROOT,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    if result.returncode != 0:  # not a git checkout, e.g. an unpacked sdist
+        pytest.skip("not a git working tree")
+
+    tracked = [
+        line.strip()
+        for line in result.stdout.splitlines()
+        if line.strip() and line.strip() != "career-corpus.example.yaml"
     ]
-    assert not tracked_corpus, (
-        f"a real corpus file is present in the repository root: {tracked_corpus}. "
-        "It is gitignored, but verify it was never committed — history is not "
-        "cleared by deleting the file."
+    assert not tracked, (
+        f"private career data is TRACKED in a public repository: {tracked}. "
+        "Deleting the file does not undo this — the history retains it."
     )
