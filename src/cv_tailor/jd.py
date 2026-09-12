@@ -35,6 +35,25 @@ _HARD_FILTER_PATTERNS = (
     r"native (speaker|proficiency)",
     r"must be (located|based)",
     r"relocat",
+    # Most regulated professions gate on a credential rather than on years, and
+    # the original list had none of them: nursing registration, chartered
+    # status, qualified teacher status, a practising certificate. Scoring one of
+    # those as an ordinary requirement lets a disqualifying miss hide behind a
+    # good overall match.
+    #
+    # Each is GATED on a qualifier rather than matching the bare noun, because
+    # the bare noun over-fires. "Post-registration experience in an acute
+    # setting" is a scorable requirement about experience; "Current NMC
+    # registration" is a door. Only the second should leave the scorecard.
+    r"\b(current|valid|active|full|professional)\b[^.]{0,40}\bregistration\b",
+    r"\bregistered\s+(nurse|practitioner|with the)\b",
+    r"\bchartered\b",
+    r"\bqualified\s+(teacher status|accountant|nurse|solicitor|surveyor|social worker)\b",
+    r"\bqts\b",
+    r"\b(hold|holds|holding|must have|must hold)\b[^.]{0,40}"
+    r"\b(licen[cs]e|certificate|registration|accreditation)\b",
+    r"\bpractising certificate\b",
+    r"\bdbs (check|clearance)\b|\bworking with children check\b|\bbackground check\b",
 )
 
 _DEGREE_PATTERNS = (
@@ -51,18 +70,44 @@ class Tier(StrEnum):
     RESPONSIBILITY = "responsibility"
 
 
+# Order matters: first match wins, so anything qualified by "preferred" or
+# "desirable" is listed before the bare form it contains.
+#
+# The healthcare, education and public-sector conventions below are not padding.
+# A nursing post advertises "Essential criteria", a school publishes a "Person
+# specification", a public body lists "Selection criteria" — and a parser that
+# only knows "Minimum qualifications" reads all three as prose and finds nothing
+# to score. Four of five test professions failed on exactly this.
 for _pattern, _tier in (
+    # Preferred first, so "preferred qualifications" never falls to a minimum rule.
+    (r"preferred qualification", Tier.PREFERRED),
+    (r"preferred requirement", Tier.PREFERRED),
+    (r"desirable criteria", Tier.PREFERRED),
+    (r"^desirable$", Tier.PREFERRED),
+    (r"^preferred$", Tier.PREFERRED),
+    (r"nice to have", Tier.PREFERRED),
+    (r"bonus points", Tier.PREFERRED),
+    # Minimum and essential.
     (r"minimum qualification", Tier.MINIMUM),
     (r"basic qualification", Tier.MINIMUM),
     (r"^qualifications", Tier.MINIMUM),
     (r"minimum requirement", Tier.MINIMUM),
+    (r"^requirements", Tier.MINIMUM),
+    (r"essential criteria", Tier.MINIMUM),
+    (r"^essential$", Tier.MINIMUM),
+    (r"person specification", Tier.MINIMUM),
+    (r"selection criteria", Tier.MINIMUM),
+    (r"skills and experience", Tier.MINIMUM),
+    (r"about you", Tier.MINIMUM),
+    (r"what we'?re looking for", Tier.MINIMUM),
     (r"what you'?ll need", Tier.MINIMUM),
-    (r"preferred qualification", Tier.PREFERRED),
-    (r"preferred requirement", Tier.PREFERRED),
-    (r"nice to have", Tier.PREFERRED),
-    (r"bonus points", Tier.PREFERRED),
+    # Responsibilities.
     (r"responsibilit", Tier.RESPONSIBILITY),
+    (r"key duties", Tier.RESPONSIBILITY),
+    (r"main duties", Tier.RESPONSIBILITY),
+    (r"^duties", Tier.RESPONSIBILITY),
     (r"what you'?ll do", Tier.RESPONSIBILITY),
+    (r"^the role$", Tier.RESPONSIBILITY),
     (r"^description", Tier.RESPONSIBILITY),
 ):
     _HEADINGS.append((_pattern, _tier))

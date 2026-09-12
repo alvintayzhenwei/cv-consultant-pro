@@ -18,6 +18,7 @@ from typing import Any
 
 import yaml
 
+from ..slop import find_blocked
 from .dates import ParsedDate, YearMonth, parse_date
 from .models import (
     Artifact,
@@ -195,6 +196,18 @@ def _bullet(raw: Any, *, role_id: str, language: str, errors: _Collector) -> Bul
         text=f"{claim}\n{mechanism}",
         errors=errors,
     )
+
+    # Slop is caught HERE, not at render. The renderer is select-only, so it
+    # cannot improve a bad sentence — reporting it at render time would raise the
+    # problem at the one moment the author can no longer cheaply fix it.
+    for finding in find_blocked(claim, ref=bullet_id, where="claim"):
+        errors.add(
+            bullet_id,
+            f"claim contains {finding.phrase!r}, which can be deleted without changing "
+            "what the sentence asserts. Say what happened instead",
+        )
+    for finding in find_blocked(mechanism, ref=bullet_id, where="mechanism"):
+        errors.add(bullet_id, f"mechanism contains {finding.phrase!r}")
 
     return Bullet(
         id=bullet_id,

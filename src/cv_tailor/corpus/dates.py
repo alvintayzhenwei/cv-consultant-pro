@@ -39,6 +39,15 @@ class YearMonth:
         """MM/YYYY — the form both résumé parsers and readers expect."""
         return f"{self.month:02d}/{self.year}"
 
+    def as_yaml(self) -> str:
+        """YYYY-MM - the form the corpus FILE uses, which is not the rendered one.
+
+        Storage is ISO-ordered so dates sort and read unambiguously; display is
+        MM/YYYY because that is what a CV prints. Writing a generated corpus with
+        render() produced a file the validator rejected on every single role.
+        """
+        return f"{self.year}-{self.month:02d}"
+
     def __str__(self) -> str:  # pragma: no cover - convenience only
         return self.render()
 
