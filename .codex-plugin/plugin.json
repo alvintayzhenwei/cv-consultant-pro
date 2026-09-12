@@ -1,0 +1,14 @@
+{
+  "name": "cv-tailor",
+  "description": "Turn a job posting into a tailored, portal-safe CV from your own career evidence — without inventing a single claim.",
+  "version": "0.1.0",
+  "author": { "name": "Alvin Tay Zhenwei" },
+  "homepage": "https://github.com/alvintayzhenwei/cv-tailor",
+  "license": "MIT",
+  "mcp_servers": {
+    "cv-tailor": {
+      "command": "uvx",
+      "args": ["cv-tailor-mcp"]
+    }
+  }
+}

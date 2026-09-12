@@ -131,3 +131,74 @@ def test_no_real_corpus_is_tracked() -> None:
         f"private career data is TRACKED in a public repository: {tracked}. "
         "Deleting the file does not undo this — the history retains it."
     )
+
+
+# ── the plugin surface ──────────────────────────────────────────────────────
+def test_the_mcp_ceiling_is_tied_to_the_api_the_server_actually_imports() -> None:
+    """The exact failure that shipped in two sibling packages, guarded here.
+
+    `mcp.server.fastmcp.FastMCP` was renamed and deleted in mcp 2.0. Both of
+    those packages declared `mcp>=1.12` with no ceiling, so from the day 2.x
+    landed every fresh `uvx` install died at import and the published install
+    instructions could not work for anybody.
+
+    This checks the MANIFEST against the IMPORT, so migrating one and forgetting
+    the other fails here rather than in a stranger's terminal. The suite could
+    not catch the original break by importing, because a locked dev venv already
+    held the old major.
+    """
+    server = (ROOT / "src" / "cv_tailor" / "mcp_server.py").read_text(encoding="utf-8")
+    spec = _requirements().get("mcp")
+    assert spec, "the MCP server needs `mcp` declared as a dependency"
+
+    if "from mcp.server.fastmcp import" in server:
+        assert "<2" in spec, (
+            "the server imports mcp.server.fastmcp, which mcp 2.0 deleted. The "
+            f"declared range {spec!r} would resolve it on a fresh install."
+        )
+    else:
+        assert ">=2" in spec, (
+            "the server no longer imports the 1.x API, so the FLOOR should move to "
+            ">=2 rather than the range being widened."
+        )
+
+
+def test_both_plugin_manifests_launch_the_same_server() -> None:
+    """One payload, two wrappers. A drift here means one host gets a stale tool set."""
+    import json
+
+    claude = json.loads((ROOT / ".claude-plugin" / "plugin.json").read_text(encoding="utf-8"))
+    codex = json.loads((ROOT / ".codex-plugin" / "plugin.json").read_text(encoding="utf-8"))
+
+    launch = claude["mcpServers"]["cv-tailor"]
+    assert codex["mcp_servers"]["cv-tailor"] == launch
+    assert claude["version"] == codex["version"] == _pyproject()["project"]["version"]
+
+
+def test_the_entry_point_the_manifests_launch_exists() -> None:
+    """`uvx cv-tailor-mcp` has to resolve to something, or nothing installs."""
+    import json
+
+    claude = json.loads((ROOT / ".claude-plugin" / "plugin.json").read_text(encoding="utf-8"))
+    command = claude["mcpServers"]["cv-tailor"]
+    assert command["command"] == "uvx"
+    named = command["args"][-1]
+    assert named in _pyproject()["project"]["scripts"], (
+        f"the manifests launch {named!r}, which is not a console script in pyproject.toml"
+    )
+
+
+def test_the_skill_is_where_a_plugin_host_looks_for_it() -> None:
+    skill = ROOT / "skills" / "cv-tailor" / "SKILL.md"
+    assert skill.is_file()
+    text = skill.read_text(encoding="utf-8")
+    assert text.startswith("---"), "a skill needs YAML frontmatter to be discovered"
+    assert "description:" in text.split("---")[1]
+
+
+def test_the_skill_repeats_the_rules_the_server_enforces() -> None:
+    """A host may load the skill and never read this repo. The rules travel with it."""
+    text = (ROOT / "skills" / "cv-tailor" / "SKILL.md").read_text(encoding="utf-8").lower()
+    assert "own phrasing" in text or "own words" in text
+    assert "estimated_placeholder" in text
+    assert "exposure to" in text, "the skill must name the way a gap gets softened"

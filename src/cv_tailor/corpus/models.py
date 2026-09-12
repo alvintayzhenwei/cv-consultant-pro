@@ -25,6 +25,16 @@ class Todo:
 
     ref: str
     what: str
+    #: Whether this must be answered before a CV can be rendered at all.
+    #:
+    #: An unknown employment DATE blocks: every CV format prints one, there is
+    #: no honest way to omit it, and the marker leaked onto a rendered CV as the
+    #: literal word "TODO" once already. An unverified FIGURE does not block -
+    #: the anti-fabrication contract already has an answer for it, which is to
+    #: render the placeholder visibly. Gating on those would mean one unmeasured
+    #: number anywhere in a career stopped the whole pipeline, which is a worse
+    #: outcome than a CV that says "[N]" in one bullet and invites a real answer.
+    blocking: bool = False
 
 
 @dataclass
@@ -213,6 +223,10 @@ class Corpus:
                 return bullet
         return None
 
+    def blocking_todos(self) -> list[Todo]:
+        """Only what must be answered before anything can be rendered."""
+        return [todo for todo in self.todos() if todo.blocking]
+
     def todos(self) -> list[Todo]:
         """Everything the corpus knows is missing, for the user to fill in.
 
@@ -222,7 +236,9 @@ class Corpus:
         found: list[Todo] = []
         for role in self.roles:
             if role.needs_dates:
-                found.append(Todo(ref=role.id, what="employment dates are unknown"))
+                found.append(
+                    Todo(ref=role.id, what="employment dates are unknown", blocking=True)
+                )
         for bullet in self.all_bullets():
             if bullet.has_placeholder and bullet.metric is not None:
                 found.append(

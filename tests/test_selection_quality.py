@@ -112,8 +112,8 @@ roles:
     tags: [quantum]
     bullets:
       - id: b-only
-        claim: Worked on quantum error correction
-        mechanism: research support
+        claim: Built the calibration harness for a quantum error correction experiment
+        mechanism: automated pulse sequencing across the qubit array
         tags: [quantum, research]
 """
     )
