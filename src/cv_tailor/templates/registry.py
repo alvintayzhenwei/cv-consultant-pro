@@ -121,7 +121,10 @@ h2 {
   letter-spacing: 0.1em; color: var(--accent); margin-bottom: 6px;
   display: flex; align-items: center; gap: 7px;
 }
-h2::after { content: ""; flex: 1; height: 2px; background: var(--accent); opacity: .22; }
+/* Pre-faded fill rather than opacity. The effect is identical here, and it
+   keeps the "no opacity on a painted element" rule simple enough to enforce —
+   a rule with exemptions is a rule nobody applies. */
+h2::after { content: ""; flex: 1; height: 2px; background: rgba(15, 110, 110, .22); }
 .summary { max-width: 76ch; }
 
 .skills { display: flex; flex-wrap: wrap; gap: 3px 4px; }
@@ -144,7 +147,7 @@ h2::after { content: ""; flex: 1; height: 2px; background: var(--accent); opacit
 .role li { position: relative; padding-left: 10px; margin-bottom: 2px; max-width: 82ch; }
 .role li::before {
   content: ""; position: absolute; left: 0; top: 6px;
-  width: 4px; height: 4px; background: var(--accent); opacity: .55;
+  width: 4px; height: 4px; background: rgba(15, 110, 110, .55);
 }
 
 .plain li { margin-bottom: 2px; }
@@ -178,21 +181,24 @@ body {
   font-size: 10pt;
   line-height: 1.48;
 }
-header { background: var(--band); color: #fff; padding: 13mm 17mm 9mm; }
+/* The band is one block, not two. `opacity` on .contact lightened its
+   BACKGROUND as well as its text, which split the band into two tones with a
+   visible seam. Fade the ink with rgba instead and leave the fill alone. */
+header { background: var(--band); color: #fff; padding: 12mm 16mm 3mm; }
 h1 {
   font-family: "Zilla Slab", Georgia, serif;
-  font-size: 25pt; font-weight: 700; line-height: 1.02;
+  font-size: 24pt; font-weight: 700; line-height: 1.02;
 }
-.target { font-size: 10.5pt; margin-top: 4px; opacity: .85; }
+.target { font-size: 10.5pt; margin-top: 3px; color: rgba(255,255,255,.86); }
 
 .contact {
-  display: flex; flex-wrap: wrap; gap: 3px 16px;
-  background: var(--band); color: #fff;
-  font-size: 8.7pt; padding: 0 17mm 10mm; opacity: .82;
+  display: flex; flex-wrap: wrap; gap: 2px 14px;
+  background: var(--band); color: rgba(255,255,255,.8);
+  font-size: 8.6pt; padding: 0 16mm 11mm;
 }
 
-section { margin: 12px 17mm 0; }
-section:last-of-type { margin-bottom: 14mm; }
+section { margin: 11px 16mm 0; }
+section:last-of-type { margin-bottom: 13mm; }
 h2 {
   font-family: "Zilla Slab", Georgia, serif;
   font-size: 12.6pt; font-weight: 600; color: var(--accent);

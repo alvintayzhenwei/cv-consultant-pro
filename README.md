@@ -3,160 +3,109 @@
 [![CI](https://img.shields.io/github/actions/workflow/status/alvintayzhenwei/cv-tailor/ci.yml?branch=main&label=CI&logo=github)](https://github.com/alvintayzhenwei/cv-tailor/actions/workflows/ci.yml)
 [![Audit](https://img.shields.io/github/actions/workflow/status/alvintayzhenwei/cv-tailor/audit.yml?branch=main&label=Audit&logo=github)](https://github.com/alvintayzhenwei/cv-tailor/actions/workflows/audit.yml)
 [![CodeQL](https://img.shields.io/github/actions/workflow/status/alvintayzhenwei/cv-tailor/codeql.yml?branch=main&label=CodeQL&logo=github)](https://github.com/alvintayzhenwei/cv-tailor/actions/workflows/codeql.yml)
-[![tests](https://img.shields.io/badge/tests-98%20passing-brightgreen)](tests/)
+[![tests](https://img.shields.io/badge/tests-108%20passing-brightgreen)](tests/)
 [![license](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
 
 <!--
-The three workflow badges read live from GitHub Actions and show "no status"
-until each workflow has run on `main`.
-
-The test count is a STATIC badge, which is normally how a number goes quietly
-stale — the same failure this project refuses on a CV. So it is pinned by a
-test: tests/test_packaging.py::test_the_readme_test_count_badge_is_current
-counts the test functions and fails if the badge disagrees. Change the badge and
-the count together, or CI says so.
+Workflow badges read live from Actions and show "no status" until each has run on
+main. The test count is static, which is how a number goes quietly stale — so
+tests/test_packaging.py::test_the_readme_test_count_badge_is_current reads
+pytest's own collection and fails if the badge disagrees.
 -->
 
-Turn a job description into a tailored, ATS-safe application kit — a match scorecard, a
-one-page CV in Markdown and `.docx`, a ranked gap plan, and the interview questions that
-posting is likely to produce.
+A job description in, a tailored application kit out: scorecard, one-page CV, gap plan,
+interview questions.
 
-It does this by **selecting from a corpus of your own career evidence**. It never writes a
-claim you did not write, and never invents a number.
+It **selects from a corpus of your own career evidence**. It never writes a claim you did
+not write, and never invents a number.
 
-> **This repository is public. Your corpus is not.**
-> `career-corpus.yaml` is gitignored, and `.gitignore` is deliberately the first commit in
-> this repository's history so there was never a window without it. A generated kit embeds
-> corpus content in a rendered CV, so kits are ignored too. Neither is un-leaked by a later
-> deletion — git keeps history. Only `career-corpus.example.yaml`, which contains wholly
-> fictional data, is committed.
+![The rail layout, rendered from the fictional example corpus](docs/sample-rail.png)
 
-## Why it exists
+> Every name, figure and contact detail above is invented. The screenshot is generated from
+> `career-corpus.example.yaml`, never from a real corpus.
 
-Tailoring a CV by hand takes an evening per posting: read the JD, map it against a career
-history that lives in several places and nowhere completely, decide what to cut, rewrite
-bullets, then check that nothing overstates the truth.
+## Your corpus never enters this repository
 
-Doing that twice by hand produced the insight this tool is built on: **the CV is the cheap
-part; the corpus is the asset.** What makes tailoring possible is having every role,
-accomplishment, metric and skill available as separate, addressable evidence. What makes it
-slow is that no such store exists — a LinkedIn profile is prose, and a previous CV is one
-frozen selection from a store that was never written down.
+`career-corpus.yaml` is gitignored, and `.gitignore` is the first commit in this history so
+there was no window without it. Generated kits are ignored too — a kit embeds corpus content
+in a rendered CV. Neither is un-leaked by a later deletion; git keeps history.
+
+Four guards: the ignore rules, a pre-push hook that inspects the tip being pushed, a CI job
+that fails if anything corpus-shaped is tracked, and a test.
+
+## Use
+
+```bash
+uv sync --extra dev
+cp career-corpus.example.yaml career-corpus.yaml   # then fill it in
+uv run python -m cv_tailor.cli validate            # says what is still missing
+uv run python -m cv_tailor.cli templates           # list layouts
+uv run python -m cv_tailor.cli tailor jd.txt --template rail --out kits/acme
+```
+
+Output: `cv.md`, `cv.docx`, `cv.html`, `scorecard.md`, `gaps.md`, `traceability.md`,
+`placeholders.md`.
+
+## Layouts
+
+| | Direction | Channel |
+|---|---|---|
+| `ledger` | Engineering notebook. Ruled records, dates in a column, oxblood | Portal |
+| `signal` | Dense, engineered. One typeface, teal markers | Portal · default |
+| `keystone` | Solid name band, slab headings, deep blue | Portal |
+| `atelier` | Editorial. Asymmetric margins, brass on blush | Human |
+| `rail` | Sidebar. Aubergine and sage | Human |
+
+**Portal** layouts are single column with no sidebar, icons or images — submit those.
+**Human** layouts look better by doing what a parser mishandles, so send them to a person
+directly. No layout carries a photograph: it invites discrimination screening and is
+stripped by many employers. The CLI names the channel on every run.
 
 ## The contract
 
-The engine may **select, compress, re-order and re-word** corpus entries, and may adopt a
-posting's exact vocabulary where the corpus already declares that wording as an alias of a
-skill you hold. That last clause resolves a real tension: a literal keyword index wants the
-posting's words, while a language-model screener — and the interviewer afterwards — want true
-sentences.
+The engine may select, compress, re-order and re-word corpus entries, and may adopt a
+posting's exact wording where the corpus declares it as an alias of a skill you hold.
 
-It may **not**:
+It may not author a claim the corpus lacks, introduce a skill you do not have, or replace an
+unverified metric with a guess. Unverified figures render as `[X]` and are listed for you to
+fill in. Before writing, an audit checks every claim traces to a corpus entry id.
 
-- author a claim absent from the corpus,
-- introduce a skill the corpus does not hold,
-- or replace an unverified metric with an estimated, rounded or inferred figure.
+Enforced mechanically: every metric declares `verified: true` with a value, or
+`verified: false` with a placeholder and no number. The validator exits non-zero otherwise,
+so the rule is a build failure rather than a prompt.
 
-An unverified metric renders as its literal placeholder (`[X]`, `[N]`), and the kit lists
-every placeholder so you know what to fill in. Before anything is written, an audit stage
-verifies that every claim traces to a corpus entry id and refuses to write output that does
-not.
+**The limit:** the validator enforces a metric's *shape*, not its truth. Nothing stops you
+marking a fabricated figure verified. Traceability is the only real mitigation.
 
-This is enforced mechanically rather than by instruction. Every metric in the corpus declares
-`verified: true` with a concrete value, or `verified: false` with a placeholder and no number.
-The validator fails with a non-zero exit on any violation, so the rule is a build failure
-rather than a prompt a renderer might drift from.
+## On ATS
 
-**The honest limit:** the validator enforces the *shape* of a metric, not its truth. Nothing
-here stops you marking a fabricated figure `verified: true`. The traceability record is the
-only real mitigation — every rendered claim stays attributable to something you wrote
-deliberately.
+The "75% auto-rejected" figure traces to a 2012 sales pitch by a company gone by 2013;
+recruiter surveys say rejection is overwhelmingly manual. So this optimises for what actually
+gates an application: **parsing** (the only hard gate, hence the generated `.docx`),
+**keyword search**, and **an LLM reader** that rewards specificity and detects stuffing.
+Bullets follow the XYZ form — accomplished X, measured by Y, by doing Z.
 
-## What it produces
+## Security
 
-Per posting, in one directory:
+Dependabot (`uv` and actions), weekly CodeQL, `pip-audit` against the resolved lockfile,
+dependency review. Actions pinned to commit SHAs.
 
-| File | What it is |
-|---|---|
-| `scorecard.md` | Every requirement scored `strong` / `partial` / `gap`, citing the corpus entries behind each |
-| `cv.md`, `cv.docx` | The tailored one-page CV. `.docx` formatting is generated in code, not hand-applied |
-| `gaps.md` | Unmet requirements ranked by impact, each naming the evidence that would close it |
-| `interview.md` | Likely questions, marked prepared or unprepared against your recorded positions |
-| `traceability.md` | Every rendered bullet mapped back to its corpus entry id |
-| `placeholders.md` | Every `[X]` in the CV and which bullet it belongs to |
-| `suggestions.yaml` | Drafted corpus entries for evidence the posting wanted and the corpus lacked — for you to verify and accept. Never rendered into a CV |
+Three are repository settings this repo cannot enable for itself — *Settings → Code
+security*: **Dependabot alerts**, **Dependabot security updates**, **secret scanning push
+protection**.
 
-## On ATS, briefly
+**No CODEOWNERS file, deliberately.** GitHub never lets a PR author approve their own PR, so
+with *Require review from Code Owners* on and one maintainer, a CODEOWNERS file naming that
+maintainer makes every PR unmergeable. With no file, no path has an owner and the rule has
+nothing to require.
 
-The widely-quoted claim that applicant tracking systems auto-reject 75% of résumés traces to
-a 2012 sales pitch by a company that folded in 2013, with no published methodology. Recruiter
-surveys put it differently: rejection is overwhelmingly manual, or triggered by eligibility
-knock-out questions — not by formatting or a missing keyword.
-
-So this tool does not try to beat a robot. It optimises for what actually gates an
-application:
-
-1. **Parsing.** The only true hard gate. Nothing downstream happens if the text cannot be
-   extracted, which is why the `.docx` is generated in code — single column, no tables, text
-   boxes, headers, footers or images, standard headings, `MM/YYYY` dates. Hand-reformatting
-   in Word is exactly where this gets broken.
-2. **Keyword search**, which a recruiter uses like Ctrl+F — hence the dedicated skills
-   section, which carries more weight than the same skill buried in a bullet.
-3. **A language-model reader**, which rewards specificity and recency, and whose vendors now
-   actively detect stuffing and hidden text.
-
-Bullets follow the XYZ form — accomplished X, as measured by Y, by doing Z.
-
-## Repository security
-
-This repository is public and the corpus is not, so the boundary is enforced in four
-places rather than trusted once: `.gitignore` as the first commit, a pre-push hook that
-inspects the tip being pushed, a CI job that fails if anything corpus-shaped is tracked,
-and a test asserting the ignore rules still say what they should.
-
-Beyond that: Dependabot version updates for the `uv` project and for the workflows
-themselves, weekly CodeQL on `python` and `actions`, `pip-audit` against the resolved
-lockfile on every PR and weekly, and dependency review on PRs. Every action is pinned to
-a full commit SHA, because a tag is a mutable pointer the upstream owner can repoint.
-
-Three of these are repository **settings** rather than files, and this repo cannot turn
-them on for itself — enable them under *Settings → Code security*:
-
-- **Dependabot alerts** and **Dependabot security updates** — `dependabot.yml` configures
-  version updates only; the advisory-driven ones are a separate switch.
-- **Secret scanning** and **push protection** — push protection is the one that matters:
-  it blocks a credential at push time rather than alerting after it is public.
-
-### Why there is no CODEOWNERS file
-
-Deliberate, and worth stating because adding one looks like an obvious improvement.
-
-GitHub never allows a pull request's author to approve their own PR — that is a platform
-rule no setting overrides. With branch protection set to **Require review from Code
-Owners** and a single maintainer, a CODEOWNERS file naming that maintainer would make
-every pull request permanently unmergeable, short of an admin bypass on each one.
-
-With no CODEOWNERS file, no path has an owner, so the rule has nothing to require and the
-branch stays protected in every other respect. If a second maintainer ever joins, add the
-file then.
-
-### Required status checks
-
-Branch protection has *Require status checks to pass* enabled but no checks selected yet;
-GitHub can only offer a check it has already seen. After the first pull request runs,
-add these by name under *Settings → Branches*:
-
-- `Lint and test`
-- `No corpus or kit is tracked`
-- `pip-audit`
-
-`CodeQL (python)` and `CodeQL (actions)` are worth adding once you have seen them pass;
-CodeQL on a scheduled run can lag a fast-moving PR, so add them knowing that.
+Required status checks to add once they have run: `Lint and test`,
+`No corpus or kit is tracked`, `pip-audit`.
 
 ## Status
 
-Early. The corpus schema and validator come first, because a structured, validated career
-history is useful on its own even if nothing else ships.
+Early. The corpus schema and validator came first: a structured, validated career history is
+useful on its own.
 
 ## Licence
 

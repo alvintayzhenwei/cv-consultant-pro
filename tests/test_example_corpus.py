@@ -33,6 +33,10 @@ def test_the_example_exercises_undated_roles_positions_and_skill_evidence() -> N
     corpus = load_corpus_text(EXAMPLE.read_text("utf-8"))
     assert any(r.needs_dates for r in corpus.roles), "needs a TODO-dated role"
     assert corpus.positions, "needs at least one position"
+    assert len(corpus.summaries) > 1, (
+        "needs SEVERAL summaries — one is the same paragraph on every application, "
+        "and with none the rendered CV opens with nothing at all"
+    )
     assert any(s.evidence_refs for s in corpus.skills), "needs a skill citing evidence"
     assert corpus.todos(), "todos() must surface the gaps the example deliberately contains"
 

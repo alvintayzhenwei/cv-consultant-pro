@@ -201,7 +201,11 @@ def _pick_summary(corpus: Corpus, card: Scorecard) -> str | None:
 # A bullet longer than this stops being read. The mechanism is dropped WHOLE
 # rather than truncated, for the same reason a role is: half a clause is worse
 # than no clause. The claim always survives, because it is the accomplishment.
-MAX_BULLET = 185
+#
+# 150, down from 185: at the higher limit most bullets kept their mechanism and
+# ran to three printed lines, which is a paragraph wearing a bullet's hat. A
+# recruiter scans; the claim is what gets scanned.
+MAX_BULLET = 150
 
 
 def _bullet_text(bullet: Bullet) -> str:
@@ -265,7 +269,12 @@ def build_document(
         skills=list(selection.skills),
         roles=roles,
         education=education,
-        certifications=[c.name for c in corpus.certifications if c.held],
+        # In-progress certifications render, labelled. Omitting them loses real
+        # signal — someone sitting an exam next month is worth knowing about —
+        # and printing them unlabelled would claim something untrue.
+        certifications=[
+            c.name if c.held else f"{c.name} (in progress)" for c in corpus.certifications
+        ],
         artifacts=[a.name for a in corpus.artifacts],
     )
     return document, trace, placeholders
