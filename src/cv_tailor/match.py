@@ -15,7 +15,7 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
-from enum import Enum
+from enum import StrEnum
 
 from .corpus import Bullet, Corpus, YearMonth
 from .jd import JobDescription, Requirement
@@ -29,7 +29,7 @@ _STOPWORDS = frozenset(
 )
 
 
-class Verdict(str, Enum):
+class Verdict(StrEnum):
     STRONG = "strong"
     PARTIAL = "partial"
     GAP = "gap"

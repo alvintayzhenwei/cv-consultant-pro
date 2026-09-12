@@ -59,3 +59,24 @@ addopts = "-q"
 [tool.ruff]
 line-length = 100
 target-version = "py311"
+
+# Everything below is stated rather than inferred, because inference is what
+# made CI and a developer machine disagree.
+#
+# CI failed with I001 on eight test files that `ruff check .` passed locally —
+# same ruff version, byte-identical files, same config. The difference was how
+# ruff classified `cv_tailor`: first-party locally, where only ./src exists, and
+# third-party in CI, where `uv sync` had also installed the package into .venv.
+# That flips which import group each line belongs to, and therefore whether a
+# blank line between them is correct.
+#
+# A lint rule whose verdict depends on whether the project happens to be
+# installed is not a lint rule; it is a coin toss that only lands wrong in CI.
+[tool.ruff.lint]
+# The default set is E4, E7, E9 and F — isort is NOT in it. CI applied it
+# anyway, so the selection was ambiguous too. Say it.
+select = ["E4", "E7", "E9", "F", "I", "B", "UP", "RUF"]
+
+[tool.ruff.lint.isort]
+# The line that actually fixes the divergence.
+known-first-party = ["cv_tailor"]

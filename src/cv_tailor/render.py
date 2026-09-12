@@ -344,7 +344,7 @@ def _audit(markdown: str, corpus: Corpus, selection: Selection) -> None:
             + ", ".join(unknown)
         )
 
-    for role, bullets in selection.roles:
+    for _role, bullets in selection.roles:
         for bullet in bullets:
             if bullet.metric is not None and not bullet.metric.verified:
                 holder = bullet.metric.placeholder or ""

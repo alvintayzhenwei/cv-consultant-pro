@@ -14,7 +14,7 @@ from __future__ import annotations
 
 import re
 from dataclasses import dataclass, field
-from enum import Enum
+from enum import StrEnum
 
 _BULLET = re.compile(r"^\s*(?:[-•*]|\d+[.)])\s+(.*\S)\s*$")
 _YEARS = re.compile(r"\b(\d{1,2})\s*\+?\s*(?:or more\s*)?years?\b", re.IGNORECASE)
@@ -45,7 +45,7 @@ _DEGREE_PATTERNS = (
 )
 
 
-class Tier(str, Enum):
+class Tier(StrEnum):
     MINIMUM = "minimum"
     PREFERRED = "preferred"
     RESPONSIBILITY = "responsibility"
