@@ -27,6 +27,25 @@ person:
     github: https://github.com/example
     site: https://example.com
 
+# The engine SELECTS one of these by tag overlap with the posting. It may never
+# compose one, so the variety has to live here or a CV opens with nothing.
+# Carry more than one: a single summary is the same paragraph on every
+# application, which is the thing tailoring is supposed to stop.
+summaries:
+  - id: sum-platform
+    tags: [platform, ci-cd, reliability, delivery, automation]
+    text: >-
+      Platform engineer who makes deployment boring. Replaced a serial release
+      script with a parallelised pipeline, led a gateway migration with no
+      customer-visible downtime, and keeps the on-call load falling.
+
+  - id: sum-frontend
+    tags: [frontend, react, design-system, accessibility, quality]
+    text: >-
+      Frontend engineer focused on the parts other teams build on: a versioned
+      component library with visual regression tests, and a flagship product
+      brought to WCAG 2.1 AA and kept there by automated checks.
+
 roles:
   # A current role. `end: present` is the only way to say "ongoing" — a date in
   # the future would be a claim about something that has not happened.

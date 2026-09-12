@@ -18,13 +18,17 @@ jobs:
     name: Lint and test
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      # Pinned to full commit SHAs, not tags. `@v4` is a mutable pointer the
+      # upstream owner can repoint at any commit, which is how a compromised
+      # action reaches every repository that trusts the tag. Dependabot keeps
+      # these SHAs current (see .github/dependabot.yml).
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           # Nothing in this job talks to git; do not leave a token sitting in
           # .git/config for the rest of the run.
           persist-credentials: false
 
-      - uses: astral-sh/setup-uv@v5
+      - uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
         with:
           enable-cache: true
 
@@ -57,7 +61,7 @@ jobs:
     # corpus ever lands in this public repository, that must be shouted about
     # even when the suite is red for an unrelated reason.
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
 

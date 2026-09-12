@@ -1,0 +1,60 @@
+uid="ucj-3">
+- link Copy link
+- email Email a friend
+corporate_fare Google place Singapore
+bar_chart Mid
+Mid
+Experience driving progress, solving problems, and mentoring more junior team members; deeper expertise and applied knowledge within relevant area.
+Apply
+share Share AI Technical Enablement Lead, Forward Deployed Engineering
+- link Copy link
+- email Email a friend
+info_outline
+X Google will be prioritizing applicants who have a current right to work in Singapore, and do not require Google's sponsorship of a visa.
+Minimum qualifications:
+- Bachelor’s degree in Engineering, Computer Science, a related field, or equivalent practical experience.
+- 5 years of experience with software development using Python or similar coding languages.
+- Experience taking production-grade AI-driven solutions from conception to launch and architecting AI systems on cloud platforms (e.g., GCP).
+- Experience building pipelines for structured and unstructured data using both vector databases and Retrieval-Augmented Generation (RAG)-like architectures to power enterprise AI solutions.
+- Experience leading technical discovery sessions.
+Preferred qualifications:
+- Master’s degree or PhD in AI, Computer Science, or a related technical field.
+- Experience implementing multi-agent systems using frameworks (e.g., LangGraph, CrewAI, ADK) and complex patterns (e.g., ReAct, self-reflection, hierarchical delegation).
+- Knowledge of "LLM-native" metrics (e.g., tokens/sec, cost-per-request) and techniques for optimizing state management and granular tracing.
+About the job
+As part of the Google Cloud JAPAC AI Tech GTM team, the AI Technical Enablement Lead will be responsible for designing, executing, and scaling a comprehensive, high-touch technical onboarding program tailored specifically for FDEs across the region. Your role will act as the operational programmatic anchor for new talent, ensuring hires develop deep product expertise, master customer engagement methodologies, and complete rigorous skill-based capstones, because AI technologies and product interfaces iterate at speed, the lead will actively update the learning curriculum in real-time to keep the FDEs lock step with the nuanced needs of the JAPAC customer. Additionally, you will crowdsource and coordinate subject matter experts across JAPAC/globally, ultimately building a sustainable framework that elevates field readiness and drives long-term customer impact.
+It's an exciting time to join Google Cloud’s Go-To-Market team, leading the AI revolution for businesses worldwide. You’ll excel by leveraging Google's brand credibility—a legacy built on inventing foundational technologies and proven at scale. We’ll provide you with the world's most advanced AI portfolio, including frontier Gemini models, and the complete Vertex AI platform, helping you to solve business problems. We’re a collaborative culture providing direct access to DeepMind's engineering and research minds, empowering you to solve customer challenges. Join us to be the catalyst for our mission, drive customer success, and define the new cloud era—the market is yours.
+Responsibilities
+- Develop deep technical enablement programs based off of Forward Deployed Engineer and Cloud AI CE requirements for learning of AI products.
+- Map persona-based views of technical GTM field enablement needs, leading the development of curriculum for in-person, e-learning and other assets.
+- Design, build and execute structured AI product deep technical training and enablement programs, and build-out of materials for P0, P1 and other priority AI initiatives.
+- Integrate into technical sales teams to understand enablement needs and become a trusted advisor to technical AI leadership.
+Information collected and processed as part of your Google Careers profile, and any job applications you choose to submit is subject to Google's Applicant and Candidate Privacy Policy .
+Google is proud to be an equal opportunity and affirmative action employer. We are committed to building a workforce that is representative of the users we serve, creating a culture of belonging, and providing an equal employment opportunity regardless of race, creed, color, religion, gender, sexual orientation, gender identity/expression, national origin, disability, age, genetic information, veteran status, marital status, pregnancy or related condition (including breastfeeding), expecting or parents-to-be, criminal histories consistent with legal requirements, or any other basis protected by law. See also Google's EEO Policy , Know your rights: workplace discrimination is illegal , Belonging at Google , and How we hire .
+If you have a need that requires accommodation, please let us know by completing our Accommodations for Applicants form .
+Google is a global company and, in order to facilitate efficient collaboration and communication globally, English proficiency is a requirement for all roles unless stated otherwise in the job posting.
+To all recruitment agencies: Google does not accept agency resumes. Please do not forward resumes to our jobs alias, Google employees, or any other organization location. Google is not responsible for any fees related to unsolicited resumes.
+Equity is granted exclusively and discretionarily by Alphabet Inc. on the basis of an agreement concluded between you and Alphabet Inc. Alphabet Inc. is your sole contractual partner with respect to equity grants. GSU grants are not guaranteed, are discretionary, are subject to approval by the Alphabet Inc. board of directors or its delegate, the terms of the relevant Alphabet Inc. stock plan, and your grant agreement. They have no impact on statutory payments. Current or past grants do not confer an acquired right.
+Follow Life at Google on
+-
+-
+-
+-
+-
+More about us
+About us open_in_new Contact us open_in_new Press open_in_new
+Related Information
+Investor relations open_in_new Blog open_in_new
+Equal Opportunity
+Google is proud to be an equal opportunity and affirmative action employer. We are committed to building a workforce that is representative of the users we serve, creating a culture of belonging, and providing an equal employment opportunity regardless of race, creed, color, religion, gender, sexual orientation, gender identity/expression, national origin, disability, age, genetic information, veteran status, marital status, pregnancy or related condition (including breastfeeding), expecting or parents-to-be, criminal histories consistent with legal requirements, or any other basis protected by law. See also Google's EEO Policy , Know your rights: workplace discrimination is illegal , Belonging at Google , and How we hire .
+More about us
+expand_more
+Related information
+expand_more
+Equal opportunity
+expand_more
+Privacy open_in_new Applicant & Candidate Privacy open_in_new Terms open_in_new Manage cookies
+help Help open_in_new
+-
+Follow Life at Google on
+<li

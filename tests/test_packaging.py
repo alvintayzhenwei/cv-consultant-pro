@@ -14,8 +14,12 @@ for, which is the drift that actually bites.
 from __future__ import annotations
 
 import re
+import subprocess
+import sys
 import tomllib
 from pathlib import Path
+
+import pytest
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -55,15 +59,75 @@ def test_gitignore_is_the_disclosure_boundary() -> None:
     )
 
 
+def test_the_readme_test_count_badge_is_current() -> None:
+    """A hand-written number on a badge is a metric with nobody checking it.
+
+    That is precisely the failure this project refuses to allow on a CV, so it
+    is not allowed on its own README either. The badge is static because there
+    is no free service that counts tests; it is honest because this asserts it.
+
+    The count comes from pytest's own collection, not from counting `def test_`
+    lines. The first version counted definitions, which disagreed with the
+    number pytest reports the moment a parametrised test existed — a guard that
+    is itself wrong about the figure it guards is worse than no guard.
+    """
+    readme = (ROOT / "README.md").read_text(encoding="utf-8")
+    match = re.search(r"tests-(\d+)%20passing", readme)
+    assert match, "the README must carry a tests-N%20passing badge"
+    claimed = int(match.group(1))
+
+    result = subprocess.run(
+        [sys.executable, "-m", "pytest", "--collect-only", "-q", "--no-header", "-p", "no:cacheprovider"],
+        cwd=ROOT,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    # Two output shapes in the wild: a single "N tests collected" summary, and
+    # (this pytest) one "path: N" line per file. Handle both rather than skip —
+    # a guard that silently skips is a guard that is not running.
+    total = re.search(r"(\d+)\s+tests? collected", result.stdout)
+    if total:
+        actual = int(total.group(1))
+    else:
+        per_file = re.findall(r"^\S+\.py:\s*(\d+)$", result.stdout, re.MULTILINE)
+        assert per_file, (
+            "could not read a collection count from pytest, so this guard is not "
+            f"running. Output tail:\n{result.stdout[-400:]}"
+        )
+        actual = sum(int(n) for n in per_file)
+
+    assert claimed == actual, (
+        f"the README badge claims {claimed} tests, but pytest collects {actual}. "
+        "Update the badge in README.md."
+    )
+
+
 def test_no_real_corpus_is_tracked() -> None:
-    """A belt-and-braces check that nothing corpus-shaped slipped into the tree."""
-    tracked_corpus = [
-        p.name
-        for p in ROOT.glob("career-corpus*.yaml")
-        if p.name != "career-corpus.example.yaml"
+    """Nothing corpus-shaped may be TRACKED by git.
+
+    The first version of this test globbed the filesystem, which was wrong in a
+    way that mattered: a real corpus is *supposed* to sit in the working tree —
+    that is where the engine reads it from — so the test failed for every user
+    the moment they had one, including the author. Presence is correct; being
+    tracked is the defect. Ask git, not the disk.
+    """
+    result = subprocess.run(
+        ["git", "ls-files", "career-corpus*.yaml", "corpus", "kits", "out"],
+        cwd=ROOT,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    if result.returncode != 0:  # not a git checkout, e.g. an unpacked sdist
+        pytest.skip("not a git working tree")
+
+    tracked = [
+        line.strip()
+        for line in result.stdout.splitlines()
+        if line.strip() and line.strip() != "career-corpus.example.yaml"
     ]
-    assert not tracked_corpus, (
-        f"a real corpus file is present in the repository root: {tracked_corpus}. "
-        "It is gitignored, but verify it was never committed — history is not "
-        "cleared by deleting the file."
+    assert not tracked, (
+        f"private career data is TRACKED in a public repository: {tracked}. "
+        "Deleting the file does not undo this — the history retains it."
     )

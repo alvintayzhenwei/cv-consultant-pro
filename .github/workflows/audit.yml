@@ -1,0 +1,81 @@
+# Dependency vulnerability audit.
+#
+# Separate from CI on purpose. CI answers "does this change work"; this answers
+# "has the world changed under us" — which is why it also runs on a schedule,
+# with nothing pushed. A vulnerability disclosed on a Tuesday is not found by a
+# workflow that only runs when someone opens a pull request.
+
+name: Audit
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  schedule:
+    - cron: "0 6 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: audit-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  # Pinned so a pip-audit release cannot change this job's verdict on its own.
+  # Dependabot does not update this; bump it deliberately.
+  PIP_AUDIT_VERSION: "2.9.0"
+
+jobs:
+  python:
+    name: pip-audit
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
+        with:
+          enable-cache: true
+
+      - name: Audit the resolved lockfile
+        run: |
+          # Audit the RESOLVED LOCKFILE, not the manifest's ranges. pyproject
+          # declares upper bounds rather than exact pins, so re-resolving would
+          # audit versions this project does not actually install.
+          #
+          # --frozen also fails if uv.lock is stale against pyproject.toml,
+          # which is worth failing on: a drifted lockfile means this job is
+          # measuring a tree nobody installs.
+          uv export --frozen --no-emit-project --format requirements-txt \
+            > requirements.audit.txt
+
+          # No --ignore-vuln entries. There are none to carry yet, and the rule
+          # when one becomes necessary is: document it in README.md with its
+          # reasoning, and remove the id the moment its bump lands. An ignore
+          # that outlives its advisory silently suppresses a real FUTURE finding
+          # filed under the same id.
+          uvx --from "pip-audit==${PIP_AUDIT_VERSION}" pip-audit \
+            --requirement requirements.audit.txt \
+            --progress-spinner off
+
+  review:
+    name: Dependency review
+    # Only meaningful on a pull request — it diffs the dependency graph of the
+    # head against the base, so there is nothing to compare on a push.
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: actions/dependency-review-action@a1d282b36b6f3519aa1f3fc636f609c47dddb294 # v5.0.0
+        with:
+          fail-on-severity: moderate
+          comment-summary-in-pr: on-failure
