@@ -169,6 +169,8 @@ def test_confirming_evidence_marks_anything_already_written_out_of_date(
         mcp_server.cv_confirm_evidence,
         proposal_id=recorded["proposals"][0]["id"],
         verified=False,
+        role_id="royal-ward-sister",
+        mechanism="running the programme alongside the ward rota",
     )
     assert result["verified"] is False
     assert call(mcp_server.cv_status)["kit_out_of_date"] is True
@@ -406,3 +408,78 @@ def test_the_agent_cannot_be_asked_to_invent_a_figure() -> None:
 
     params = set(inspect.signature(mcp_server.cv_fill_placeholder).parameters)
     assert params == {"bullet_id", "measured_figure", "keep_placeholder"}
+
+
+# ── a confirmed proposal has to actually land ───────────────────────────────
+def test_confirming_a_proposal_writes_it_into_the_corpus(scored, fresh_session) -> None:
+    """The interview's guarded path must be the one that reaches the CV.
+
+    `cv_record_answer` deliberately has no parameter for an agent's own wording,
+    and `cv_confirm_evidence` calls itself the only route from an answer onto the
+    CV. That guarantee is worth nothing if confirming writes nothing: the only
+    tool that did write was `cv_corpus_add`, which takes the agent's text — so
+    the guarded path was a dead end and the unguarded one did all the work.
+    """
+    before = fresh_session.read_text(encoding="utf-8")
+    call(mcp_server.cv_interview)
+    call(mcp_server.cv_acknowledge)
+    question = call(mcp_server.cv_next_question)
+    recorded = call(
+        mcp_server.cv_record_answer,
+        question_id=question["id"],
+        user_said="I led the preceptorship programme for newly qualified nurses.",
+    )
+    result = call(
+        mcp_server.cv_confirm_evidence,
+        proposal_id=recorded["proposals"][0]["id"],
+        verified=False,
+        role_id="royal-ward-sister",
+        mechanism="running the programme alongside the ward rota",
+    )
+    assert "error" not in result, result
+    after = fresh_session.read_text(encoding="utf-8")
+    assert after != before, "confirming wrote nothing to the corpus"
+    assert "preceptorship programme" in after
+
+
+def test_a_confirmed_proposal_needs_somewhere_to_go(scored) -> None:
+    """A bullet belongs to a role. Refusing beats guessing which one."""
+    call(mcp_server.cv_interview)
+    call(mcp_server.cv_acknowledge)
+    question = call(mcp_server.cv_next_question)
+    recorded = call(
+        mcp_server.cv_record_answer,
+        question_id=question["id"],
+        user_said="I led the preceptorship programme.",
+    )
+    result = call(
+        mcp_server.cv_confirm_evidence,
+        proposal_id=recorded["proposals"][0]["id"],
+        verified=False,
+    )
+    assert "error" in result
+    assert "role" in result["error"].lower()
+
+
+def test_an_unmeasured_figure_never_becomes_a_number_on_the_cv(scored, fresh_session) -> None:
+    """`_propose` lifts the first number anywhere in the answer, so it is often
+    bound to a claim that does not contain it. Attaching that as a measured
+    metric manufactures a figure, which is the one thing this tool must not do.
+    """
+    call(mcp_server.cv_interview)
+    call(mcp_server.cv_acknowledge)
+    question = call(mcp_server.cv_next_question)
+    recorded = call(
+        mcp_server.cv_record_answer,
+        question_id=question["id"],
+        user_said="1. I ran the ward. Separately, our audit score was 95%.",
+    )
+    call(
+        mcp_server.cv_confirm_evidence,
+        proposal_id=recorded["proposals"][0]["id"],
+        verified=True,
+        role_id="royal-ward-sister",
+        mechanism="day-to-day charge of the ward",
+    )
+    text = fresh_session.read_text(encoding="utf-8")
+    assert "value: \"1.\"" not in text and "value: '1.'" not in text

@@ -713,12 +713,34 @@ def cv_record_answer(question_id: str, user_said: str) -> str:
 
 
 @mcp.tool()
-def cv_confirm_evidence(proposal_id: str, verified: bool, claim: str | None = None) -> str:
-    """Accept a proposed entry. The only route from an answer onto the CV.
+def cv_confirm_evidence(
+    proposal_id: str,
+    verified: bool,
+    role_id: str | None = None,
+    mechanism: str | None = None,
+    claim: str | None = None,
+    measured_figure: str | None = None,
+) -> str:
+    """Accept a proposed entry and WRITE it to the corpus.
 
-    `verified` must reflect what the user actually said: true only when a figure
-    was measured, false when it is an estimate — in which case it renders as a
-    placeholder rather than a number.
+    This is the only route from an answer onto the CV, and it has to actually be
+    one: it used to set a flag and return, so the guarded path — verbatim
+    capture, then confirmation — reached nothing, and the only tool that wrote
+    was `cv_corpus_add`, which takes the agent's own text. The guarantee was
+    inverted in practice.
+
+    `claim` is the user's wording, theirs to shorten at this point: a proposal is
+    their raw answer, which is usually longer than a bullet. Do not improve it.
+
+    `mechanism` is the user's answer to HOW they brought it about. Ask them; a
+    claim with no mechanism is an assertion.
+
+    A figure is written ONLY from `measured_figure`, and only when `verified` is
+    true. The `figure` a proposal carries is a hint and nothing more: it is the
+    first number found anywhere in the answer, so it is routinely bound to a
+    sentence that never contained it, and it has matched list numbering ("1.")
+    as readily as a real metric. Ask the user what the number is and whether they
+    counted it; pass their answer. Never pass the proposal's hint unchecked.
     """
     if _session.interview is None:
         return _err("no interview")
@@ -726,12 +748,50 @@ def cv_confirm_evidence(proposal_id: str, verified: bool, claim: str | None = No
         proposal = _session.interview.confirm(proposal_id, verified=verified, claim=claim)
     except InterviewError as exc:
         return _err(str(exc))
+
+    if not role_id:
+        return _err(
+            "a bullet belongs to a role — say which one",
+            hint=(
+                "Pass role_id. The roles in this corpus are: "
+                + ", ".join(r.id for r in _session.corpus.roles)
+                if _session.corpus
+                else "Pass role_id."
+            ),
+        )
+    if not mechanism:
+        return _err(
+            "a claim with no mechanism is an assertion",
+            hint=(
+                "Ask the user HOW they brought it about, and pass their answer. That is "
+                "the half a profile never states, and the half that makes a bullet evidence."
+            ),
+        )
+
+    figure = measured_figure.strip() if (verified and measured_figure) else None
+
+    path = str(_session.corpus_path) if _session.corpus_path else None
+    bullet = NewBullet(
+        id=_suggest_bullet_id(role_id, proposal.claim),
+        claim=proposal.claim,
+        mechanism=mechanism,
+        tags=proposal.tags,
+        metric_value=figure,
+    )
+    try:
+        apply(path, lambda text: add_bullet(text, role_id, bullet))
+    except EditError as exc:
+        return _err(str(exc))
+    _session.load(path)
     _session.kit_stale = _session.kit_dir is not None
     return _ok(
         {
             "confirmed": proposal.id,
+            "written_to": role_id,
+            "bullet": bullet.id,
             "claim": proposal.claim,
-            "verified": proposal.verified,
+            "verified": bool(figure),
+            "figure": figure,
             "note": (
                 "Anything already written to disk is now out of date. Re-render before "
                 "the user sends it anywhere."

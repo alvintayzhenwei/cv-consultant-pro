@@ -35,6 +35,16 @@ MAX_SKILL_TAIL = 5
 # stops reading as a stint and starts reading as a chapter.
 MIN_ROLE_MONTHS = 12
 
+#: The most bullets any ONE role may carry, however relevant it is.
+#:
+#: `budget` alone is a GLOBAL cap, so the most relevant role took everything
+#: that fitted and every later role was squeezed to a line or two. That made
+#: recovering evidence actively harmful: a real run put thirteen bullets under
+#: each of two roles, ran to three pages, and dropped seven bullets the user had
+#: just recovered in the interview. A reader skims four to six lines per role and
+#: stops; past that the extra lines cost the roles below them.
+MAX_ROLE_BULLETS = 6
+
 
 def _sole_evidence_bullets(card: Scorecard) -> set[str]:
     """Bullets that are the ONLY thing answering some requirement.
@@ -141,7 +151,7 @@ def select(corpus: Corpus, card: Scorecard, *, budget: int = LINE_BUDGET) -> Sel
         if room <= 0:
             selection.dropped_roles.append(role.id)
             continue
-        take = kept[: max(1, min(len(kept), room))]
+        take = kept[: max(1, min(len(kept), room, MAX_ROLE_BULLETS))]
         selection.roles.append((role, take))
         lines += 1 + len(take)
 

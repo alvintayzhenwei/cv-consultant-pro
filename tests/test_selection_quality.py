@@ -120,3 +120,51 @@ roles:
     jd = parse_jd("Responsibilities\n- Experience with quantum error correction research.\n")
     selection = select(corpus, score(jd, corpus))
     assert "r-brief-only" in {role.id for role, _ in selection.roles}
+
+
+def test_no_single_role_eats_the_whole_page() -> None:
+    """A role wants a handful of bullets, not everything that matches.
+
+    `select` capped only the GLOBAL line budget, so the most relevant role took
+    as many bullets as would fit and later roles were squeezed to one or two.
+    Recovering evidence then made the document worse: a real run put thirteen
+    bullets under each of two roles and dropped seven newly recovered ones.
+    """
+    bullets = "\n".join(
+        f"""      - id: b-{n}
+        claim: Ran an automation project number {n} that cut manual effort
+        mechanism: tooling for repetitive work
+        tags: [automation, tooling]"""
+        for n in range(12)
+    )
+    corpus_text = f"""
+person:
+  name: Test Person
+roles:
+  - id: r-big
+    org: Acme
+    title: Engineer
+    start: "2019-01"
+    end: present
+    tags: [automation]
+    bullets:
+{bullets}
+  - id: r-second
+    org: Beta
+    title: Engineer
+    start: "2015-01"
+    end: "2018-12"
+    tags: [automation]
+    bullets:
+      - id: b-second
+        claim: Built automation that removed a class of manual error
+        mechanism: tooling for repetitive work
+        tags: [automation, tooling]
+"""
+    corpus = load_corpus_text(corpus_text)
+    jd = parse_jd("Requirements\n- Experience with automation and tooling\n")
+    selection = select(corpus, score(jd, corpus))
+    per_role = {role.id: len(bs) for role, bs in selection.roles}
+    assert per_role, "nothing was selected"
+    assert max(per_role.values()) <= 6, per_role
+    assert "r-second" in per_role, "the later role was squeezed out by the first"
