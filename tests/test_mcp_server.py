@@ -291,6 +291,7 @@ def test_every_tool_is_registered_with_the_server() -> None:
         "cv_score",
         "cv_render",
         "cv_interview",
+        "cv_interview_summary",
         "cv_acknowledge",
         "cv_next_question",
         "cv_record_answer",
@@ -483,3 +484,68 @@ def test_an_unmeasured_figure_never_becomes_a_number_on_the_cv(scored, fresh_ses
     )
     text = fresh_session.read_text(encoding="utf-8")
     assert "value: \"1.\"" not in text and "value: '1.'" not in text
+
+
+# ── the interview asks; it does not answer ──────────────────────────────────
+def test_a_question_tells_the_user_to_go_beyond_what_is_already_recorded(scored) -> None:
+    """A question carrying context reads as something to paste back.
+
+    Reported by the first real user: shown what the corpus already holds, people
+    echo it. The question has to say, in the payload rather than in a docstring
+    the host may skip, that the answer must add what is NOT on record.
+    """
+    call(mcp_server.cv_interview)
+    call(mcp_server.cv_acknowledge)
+    question = call(mcp_server.cv_next_question)
+    assert "elaborate" in question
+    assert question["elaborate"].strip()
+    assert "instruction" in question
+
+
+def test_a_question_forbids_suggesting_an_answer_before_the_user_speaks(scored) -> None:
+    """Coaching belongs AFTER the answer, and the tool has to say so where the
+    agent will actually read it. Offering a model answer with the question puts
+    the words in first and derails the run — the user answers the suggestion.
+    """
+    call(mcp_server.cv_interview)
+    call(mcp_server.cv_acknowledge)
+    instruction = call(mcp_server.cv_next_question)["instruction"].lower()
+    assert "do not" in instruction
+    assert "suggest" in instruction or "answer" in instruction
+
+
+def test_the_interview_ends_in_one_table_rather_than_ten_asides(scored) -> None:
+    """Per-question coaching scattered through the run loses the thread. One
+    summary at the end puts every answer beside its recommendation in a single
+    place the user can read once the interview is over.
+    """
+    call(mcp_server.cv_interview)
+    call(mcp_server.cv_acknowledge)
+    question = call(mcp_server.cv_next_question)
+    call(
+        mcp_server.cv_record_answer,
+        question_id=question["id"],
+        user_said="I led the preceptorship programme for newly qualified nurses.",
+    )
+    summary = call(mcp_server.cv_interview_summary)
+    assert summary["answered"] == 1
+    row = summary["rows"][0]
+    assert row["question_id"] == question["id"]
+    assert row["requirement"]
+    assert row["answered"] == "I led the preceptorship programme for newly qualified nurses."
+    assert "verdict" in row
+    # The recommendation is the agent's to write, so the server hands it the
+    # column rather than inventing advice it has no model to produce.
+    assert "recommended_answer" in row
+    assert summary["coaching_disclaimer"]
+    assert "table" in summary["instruction"].lower()
+
+
+def test_the_summary_marks_a_question_nobody_answered(scored) -> None:
+    """A blank row is the point: it shows what was skipped."""
+    call(mcp_server.cv_interview)
+    call(mcp_server.cv_acknowledge)
+    call(mcp_server.cv_next_question)
+    summary = call(mcp_server.cv_interview_summary)
+    assert summary["answered"] == 0
+    assert all(row["answered"] is None for row in summary["rows"])

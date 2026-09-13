@@ -41,7 +41,12 @@ from .edit import (
     set_metric,
     set_role_dates,
 )
-from .interview import COACHING_DISCLAIMER, InterviewError, interview_from_scorecard
+from .interview import (
+    COACHING_DISCLAIMER,
+    ELABORATE_PROMPT,
+    InterviewError,
+    interview_from_scorecard,
+)
 from .jd import parse_jd
 from .match import Scorecard, Verdict, score
 from .preview import start_preview
@@ -649,10 +654,16 @@ def cv_acknowledge() -> str:
 def cv_next_question() -> str:
     """The next question, what it is probing, and the standing disclaimer.
 
-    After the user answers you may coach them — say what a strong answer to this
-    contains, and what theirs left out. Show `coaching_disclaimer` alongside any
-    such guidance: it is advice, it is not always right, and they should check
-    it. Then record their reply verbatim with `cv_record_answer`.
+    ASK IT AND STOP. Do not offer a model answer, an example, or a list of what
+    a good answer contains — the user answers the suggestion instead of the
+    question, and ten such asides lose the thread of the interview entirely.
+    Coaching happens ONCE, at the end, through `cv_interview_summary`.
+
+    Say the `elaborate` line with the question. Shown what the corpus already
+    holds, people repeat it back; the answer is only worth recording where it
+    goes beyond what is on record.
+
+    Then record their reply verbatim with `cv_record_answer`.
     """
     if _session.interview is None:
         return _err("no interview", hint="call cv_interview first")
@@ -673,6 +684,70 @@ def cv_next_question() -> str:
             "position_id": question.position_id,
             "probes": question.probes,
             "progress": f"{answered + 1} of {total}",
+            "elaborate": ELABORATE_PROMPT,
+            "instruction": (
+                "Ask the question and stop. Do NOT suggest an answer, give an example, "
+                "or list what a strong answer contains — that arrives before they have "
+                "thought, and they answer it instead of the question. Say the "
+                "`elaborate` line with it. Record their reply verbatim with "
+                "cv_record_answer, then call cv_next_question. Coaching comes once, at "
+                "the end, from cv_interview_summary."
+            ),
+            "coaching_disclaimer": COACHING_DISCLAIMER,
+        }
+    )
+
+
+@mcp.tool()
+def cv_interview_summary() -> str:
+    """The whole interview in one table, once every question has been put.
+
+    Coaching used to happen question by question, which cost the user the thread
+    of the interview: each aside invited a discussion, and the next question
+    arrived after it. This is the one place it belongs — every question beside
+    what they actually said, read in a single sitting when nothing is riding on
+    the next answer.
+
+    The `recommended_answer` column comes back EMPTY. This server runs no model
+    and has no business inventing advice; fill each cell yourself, from the
+    requirement and their answer, and show `coaching_disclaimer` beneath the
+    table. Nothing here reaches the corpus — a recommendation is preparation for
+    a room, never a claim on a CV.
+    """
+    if _session.interview is None:
+        return _err("no interview", hint="call cv_interview first")
+
+    interview = _session.interview
+    answered, total = interview.progress()
+    rows = []
+    for question in interview.questions:
+        answer = interview.answers.get(question.id)
+        rows.append(
+            {
+                "question_id": question.id,
+                "question": question.text,
+                "requirement": question.requirement,
+                "verdict": str(question.verdict),
+                "answered": answer.user_said if answer else None,
+                "confirms_gap": bool(answer and answer.confirms_gap),
+                "proposals": [p.id for p in answer.proposals] if answer else [],
+                "recommended_answer": "",
+            }
+        )
+    return _ok(
+        {
+            "answered": answered,
+            "total": total,
+            "rows": rows,
+            "confirmed_gaps": interview.confirmed_gaps(),
+            "instruction": (
+                "Render this as a table: question, what they answered, and your "
+                "recommended answer. Write the recommendation column yourself — the "
+                "server supplies the column, not the advice. Mark a row with "
+                "confirms_gap as a confirmed gap and recommend nothing for it: it "
+                "stays off the CV rather than being softened. Show the "
+                "coaching_disclaimer under the table."
+            ),
             "coaching_disclaimer": COACHING_DISCLAIMER,
         }
     )
