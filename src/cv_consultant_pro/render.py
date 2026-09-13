@@ -327,8 +327,17 @@ def build_document(
     selection: Selection,
     *,
     summary_id: str | None = None,
+    target: str | None = None,
 ) -> tuple[CvDocument, list[tuple[str, str]], list[tuple[str, str]]]:
-    """Assemble the CV as structure, plus its traceability and placeholder lists."""
+    """Assemble the CV as structure, plus its traceability and placeholder lists.
+
+    `target` is the line under the name. It defaulted to the posting title and
+    could be nothing else, which is right for one application and wrong
+    everywhere else — a CV uploaded to a candidate pool then announces a role
+    nobody applied for, at a company the reader does not work for. Pass
+    "current" for the current role's title, "none" to omit the line, or any
+    other string to use it verbatim as a headline.
+    """
     p = corpus.person
     trace: list[tuple[str, str]] = []
     placeholders: list[tuple[str, str]] = []
@@ -362,7 +371,7 @@ def build_document(
         contact=[x for x in [p.location, p.email, p.phone] if x],
         links=list(p.links.values()),
         languages=list(p.languages),
-        target_title=jd.title,
+        target_title=_target_title(target, jd, corpus),
         summary=(lambda c: c.text if c else None)(
             pick_summary(corpus, card, title=jd.title, pinned=summary_id)
         ),
@@ -414,6 +423,19 @@ def _markdown(doc: CvDocument) -> str:
     return "\n".join(out).rstrip() + "\n"
 
 
+
+def _target_title(target: str | None, jd: JobDescription, corpus: Corpus) -> str | None:
+    """The line under the name: the posting, the current role, a headline, or nothing."""
+    if target is None:
+        return jd.title
+    if target == "none":
+        return None
+    if target == "current":
+        current = next((r for r in corpus.roles if r.is_current), None)
+        return current.title if current else jd.title
+    return target
+
+
 def render(
     corpus: Corpus,
     jd: JobDescription,
@@ -421,9 +443,10 @@ def render(
     selection: Selection,
     *,
     summary_id: str | None = None,
+    target: str | None = None,
 ) -> Kit:
     document, trace, placeholders = build_document(
-        corpus, jd, card, selection, summary_id=summary_id
+        corpus, jd, card, selection, summary_id=summary_id, target=target
     )
     markdown = _markdown(document)
 

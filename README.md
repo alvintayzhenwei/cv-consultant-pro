@@ -3,7 +3,7 @@
 [![CI](https://img.shields.io/github/actions/workflow/status/alvintayzhenwei/cv-consultant-pro/ci.yml?branch=main&label=CI&logo=github)](https://github.com/alvintayzhenwei/cv-consultant-pro/actions/workflows/ci.yml)
 [![Audit](https://img.shields.io/github/actions/workflow/status/alvintayzhenwei/cv-consultant-pro/audit.yml?branch=main&label=Audit&logo=github)](https://github.com/alvintayzhenwei/cv-consultant-pro/actions/workflows/audit.yml)
 [![CodeQL](https://img.shields.io/github/actions/workflow/status/alvintayzhenwei/cv-consultant-pro/codeql.yml?branch=main&label=CodeQL&logo=github)](https://github.com/alvintayzhenwei/cv-consultant-pro/actions/workflows/codeql.yml)
-[![tests](https://img.shields.io/badge/tests-302%20passing-brightgreen)](https://github.com/alvintayzhenwei/cv-consultant-pro/tree/main/tests)
+[![tests](https://img.shields.io/badge/tests-319%20passing-brightgreen)](https://github.com/alvintayzhenwei/cv-consultant-pro/tree/main/tests)
 [![license](https://img.shields.io/badge/license-MIT-blue)](https://github.com/alvintayzhenwei/cv-consultant-pro/blob/main/LICENSE)
 
 <!--
@@ -24,8 +24,20 @@ rules — or as a CLI.
 
 ![The rail layout, rendered from the fictional example corpus](https://raw.githubusercontent.com/alvintayzhenwei/cv-consultant-pro/main/docs/sample-rail.png)
 
-> Every name, figure and contact detail above is invented. The screenshot is generated from
-> `career-corpus.example.yaml`, never from a real corpus.
+### Choosing a layout
+
+Choosing from five prose descriptions is guessing, so `cv_preview` renders all five with
+your own CV in them and serves them on loopback only, on a random port behind a random
+token, for as long as the session lasts.
+
+![The layout chooser: five templates side by side, each rendered from the fictional example corpus](https://raw.githubusercontent.com/alvintayzhenwei/cv-consultant-pro/main/docs/sample-layouts.png)
+
+The three marked **portal-safe** are single column with no sidebar, icons or images, because
+parsing is the only hard gate on an application. The other two look better by doing exactly
+what a parser mishandles — send those to a person directly.
+
+> Every name, figure and contact detail in both screenshots is invented. They are generated
+> from `career-corpus.example.yaml`, never from a real corpus.
 
 ## Your corpus never enters this repository
 

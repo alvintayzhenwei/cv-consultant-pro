@@ -550,13 +550,20 @@ def cv_fill_placeholder(
 
 # ── the document ────────────────────────────────────────────────────────────
 @mcp.tool()
-def cv_render(out_dir: str = "kits/latest") -> str:
+def cv_render(out_dir: str = "kits/latest", target: str | None = None) -> str:
     """Write the application kit. Refuses anything it cannot trace to the corpus.
 
     Produces cv.md, cv.docx (the format to submit through a portal) and cv.html
     in the chosen layout, along with the placeholders still to fill and the
     bullet-by-bullet traceability. An unverified figure renders as its
     placeholder and is never guessed at.
+
+    `target` is the line under the name. It defaults to the posting title, which
+    is right when applying for that posting and wrong when the CV goes anywhere
+    else: uploaded to a centralised candidate pool it claims an application that
+    was never made. Ask the user where this CV is going. For a pool, pass a short
+    headline a recruiter would search, or "current" for their current role
+    title, or "none" to leave the line off.
     """
     if _session.corpus is None or _session.jd is None or _session.card is None:
         return _err("not ready to render", hint="call cv_validate, cv_ingest_jd, cv_score")
@@ -570,6 +577,7 @@ def cv_render(out_dir: str = "kits/latest") -> str:
             _session.card,
             selection,
             summary_id=_session.summary_id,
+            target=target,
         )
     except AuditError as exc:
         return _err(f"the audit refused to write this: {exc}")

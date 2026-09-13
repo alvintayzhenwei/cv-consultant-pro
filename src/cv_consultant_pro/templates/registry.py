@@ -243,7 +243,7 @@ _ATELIER = Template(
   --soft: #5f5566;
   --paper: #f7f2f4;
   --plum: #2e2038;
-  --accent: #a8802c;
+  --accent: #7d5c14;
   --hair: #ddd2d8;
 }
 body {
@@ -321,7 +321,11 @@ _RAIL = Template(
   --rail: #2b1f2e;
   --rail-ink: #efe9ee;
   --rail-soft: #b3a5b5;
-  --accent: #7d9471;
+  /* Two grounds, so two tokens. A single sage cleared the dark sidebar at
+     4.74 and the white page at only 3.31, so the date ranges in the main
+     column shipped under the body bar. */
+  --accent: #5f7452;
+  --rail-accent: #9db58f;
   --hair: #e4e0e6;
 }
 body {
@@ -343,11 +347,11 @@ body {
   font-family: "Lora", Georgia, serif;
   font-size: 20pt; font-weight: 600; line-height: 1.05;
 }
-.rail .target { font-size: 9.4pt; color: var(--accent); margin-top: 5px; font-weight: 500; }
+.rail .target { font-size: 9.4pt; color: var(--rail-accent); margin-top: 5px; font-weight: 500; }
 .rail section { margin-top: 14px; }
 .rail h2 {
   font-size: 8.2pt; font-weight: 700; text-transform: uppercase;
-  letter-spacing: 0.11em; color: var(--accent); margin-bottom: 6px;
+  letter-spacing: 0.11em; color: var(--rail-accent); margin-bottom: 6px;
   padding-bottom: 4px; border-bottom: 1px solid rgba(255,255,255,.16);
 }
 .rail li { font-size: 8.8pt; color: var(--rail-soft); margin-bottom: 3px; word-break: break-word; }
