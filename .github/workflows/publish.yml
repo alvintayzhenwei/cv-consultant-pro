@@ -1,0 +1,95 @@
+name: Publish
+
+# Cutting a GitHub Release IS the publish gesture. Nothing uploads from a
+# laptop, so the tag, the release notes and the wheel on PyPI can never describe
+# different code — and there is no window in which someone's local working tree
+# is the thing being shipped.
+#
+# `workflow_dispatch` is kept for the case where a release was published and the
+# job failed for an unrelated reason (a runner outage, a transient PyPI 5xx). It
+# re-runs the same commit; it cannot invent a version.
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  publish:
+    name: Build and publish to PyPI
+    runs-on: ubuntu-latest
+
+    # A dedicated environment so the publish can be gated on a required reviewer
+    # in the repository settings — the last stop before a version number is
+    # spent forever. Its name must match the "Environment name" on PyPI's
+    # trusted-publisher entry for this project, or the token exchange is refused.
+    environment: release
+
+    permissions:
+      contents: read
+      # Trusted publishing: GitHub mints a short-lived OIDC token and PyPI
+      # exchanges it for an upload token scoped to this project alone. There is
+      # no long-lived PyPI API token in this repository's secrets, which is the
+      # entire point — a secret that does not exist cannot leak from a log, a
+      # fork, or a compromised action.
+      id-token: write
+
+    steps:
+      # Pinned to full commit SHAs, not tags, for the reason ci.yml states: a
+      # tag is a mutable pointer the upstream owner can repoint. That matters
+      # more here than anywhere else in this repository, because these actions
+      # run with permission to publish under your name.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
+        with:
+          enable-cache: true
+
+      - name: Install
+        run: uv sync --extra dev
+
+      # Never publish a build whose own tests do not pass. A version number is
+      # spent permanently — it can be yanked, never replaced — so this is the
+      # last moment the cost of being wrong is zero.
+      #
+      # `python -m`, not the console-script shim, matching ci.yml: an
+      # Application Control policy on the maintainer's machine blocks the shims,
+      # so one invocation form that works everywhere beats a green pipeline
+      # nobody can reproduce locally.
+      - name: Test before publishing
+        run: uv run python -m pytest
+
+      # The packaging guards are what stop this workflow shipping an install
+      # line that points at somebody else's package — which is a real thing that
+      # nearly happened here, under the project's first name. Run them by name
+      # as well, so a failure reads as "the packaging is wrong" rather than
+      # being one dot among hundreds.
+      - name: Re-assert the packaging guards
+        run: uv run python -m pytest tests/test_packaging.py -v
+
+      - name: Build sdist and wheel
+        run: uv build
+
+      # A last look at what is about to become permanent. The sdist must carry
+      # no corpus, no generated kit and no job posting: this repository is
+      # public, but an sdist is fetched and unpacked by strangers, and a file
+      # that never reached git could still reach a build.
+      - name: Assert no private data is in the artefacts
+        run: |
+          set -euo pipefail
+          found=$(tar -tzf dist/*.tar.gz \
+            | grep -E '(career-corpus\.yaml|\.notes\.md|/kits/|/out/|jd-.*\.txt|\.linkedin\.zip|Profile\.pdf)$' \
+            || true)
+          if [ -n "$found" ]; then
+            echo "::error::private data is inside the sdist about to be published:"
+            echo "$found"
+            exit 1
+          fi
+          echo "Clean: the sdist carries no corpus, kit, export or job posting."
+
+      - name: Publish
+        uses: pypa/gh-action-pypi-publish@dc37677b2e1c63e2034f94d8a5b11f265b73ba33 # v1.14.2
