@@ -41,7 +41,12 @@ from .edit import (
     set_metric,
     set_role_dates,
 )
-from .interview import COACHING_DISCLAIMER, InterviewError, interview_from_scorecard
+from .interview import (
+    COACHING_DISCLAIMER,
+    ELABORATE_PROMPT,
+    InterviewError,
+    interview_from_scorecard,
+)
 from .jd import parse_jd
 from .match import Scorecard, Verdict, score
 from .preview import start_preview
@@ -550,13 +555,20 @@ def cv_fill_placeholder(
 
 # ── the document ────────────────────────────────────────────────────────────
 @mcp.tool()
-def cv_render(out_dir: str = "kits/latest") -> str:
+def cv_render(out_dir: str = "kits/latest", target: str | None = None) -> str:
     """Write the application kit. Refuses anything it cannot trace to the corpus.
 
     Produces cv.md, cv.docx (the format to submit through a portal) and cv.html
     in the chosen layout, along with the placeholders still to fill and the
     bullet-by-bullet traceability. An unverified figure renders as its
     placeholder and is never guessed at.
+
+    `target` is the line under the name. It defaults to the posting title, which
+    is right when applying for that posting and wrong when the CV goes anywhere
+    else: uploaded to a centralised candidate pool it claims an application that
+    was never made. Ask the user where this CV is going. For a pool, pass a short
+    headline a recruiter would search, or "current" for their current role
+    title, or "none" to leave the line off.
     """
     if _session.corpus is None or _session.jd is None or _session.card is None:
         return _err("not ready to render", hint="call cv_validate, cv_ingest_jd, cv_score")
@@ -570,6 +582,7 @@ def cv_render(out_dir: str = "kits/latest") -> str:
             _session.card,
             selection,
             summary_id=_session.summary_id,
+            target=target,
         )
     except AuditError as exc:
         return _err(f"the audit refused to write this: {exc}")
@@ -590,6 +603,25 @@ def cv_render(out_dir: str = "kits/latest") -> str:
             "layout": template.id,
             "portal_safe": template.ats_safe,
             "submit_this": str(out / "cv.docx"),
+            # No PDF is generated, and that is a decision rather than an
+            # omission: producing one needs a browser engine or a native
+            # toolchain, and this installs with `uvx` and four pure
+            # dependencies. The HTML is already print-ready — A4 @page, zero
+            # margin, colour-adjust on — so the browser the user already has
+            # renders it exactly. That only helps if the tool says so.
+            "pdf": (
+                f"Open {out / 'cv.html'} in a browser and print to PDF. Set paper to "
+                "A4, margins to None, and turn Background graphics ON — without it a "
+                "name band or a coloured rail prints white and the layout falls apart."
+            ),
+            "docx_note": (
+                "cv.docx deliberately ignores the chosen layout. It is the SUBMIT "
+                "format: one column, no tables, a standard font, dull on purpose, "
+                "because parsing is the only hard gate on an application and several "
+                "of these layouts look good precisely by doing what a parser "
+                "mishandles. Send cv.html or its PDF to a person; send cv.docx to a "
+                "portal."
+            ),
             "roles": len(kit.document.roles),
             "dropped_roles": selection.dropped_roles,
             "placeholders": [{"bullet": b, "placeholder": p} for b, p in kit.placeholders],
@@ -641,10 +673,16 @@ def cv_acknowledge() -> str:
 def cv_next_question() -> str:
     """The next question, what it is probing, and the standing disclaimer.
 
-    After the user answers you may coach them — say what a strong answer to this
-    contains, and what theirs left out. Show `coaching_disclaimer` alongside any
-    such guidance: it is advice, it is not always right, and they should check
-    it. Then record their reply verbatim with `cv_record_answer`.
+    ASK IT AND STOP. Do not offer a model answer, an example, or a list of what
+    a good answer contains — the user answers the suggestion instead of the
+    question, and ten such asides lose the thread of the interview entirely.
+    Coaching happens ONCE, at the end, through `cv_interview_summary`.
+
+    Say the `elaborate` line with the question. Shown what the corpus already
+    holds, people repeat it back; the answer is only worth recording where it
+    goes beyond what is on record.
+
+    Then record their reply verbatim with `cv_record_answer`.
     """
     if _session.interview is None:
         return _err("no interview", hint="call cv_interview first")
@@ -665,6 +703,70 @@ def cv_next_question() -> str:
             "position_id": question.position_id,
             "probes": question.probes,
             "progress": f"{answered + 1} of {total}",
+            "elaborate": ELABORATE_PROMPT,
+            "instruction": (
+                "Ask the question and stop. Do NOT suggest an answer, give an example, "
+                "or list what a strong answer contains — that arrives before they have "
+                "thought, and they answer it instead of the question. Say the "
+                "`elaborate` line with it. Record their reply verbatim with "
+                "cv_record_answer, then call cv_next_question. Coaching comes once, at "
+                "the end, from cv_interview_summary."
+            ),
+            "coaching_disclaimer": COACHING_DISCLAIMER,
+        }
+    )
+
+
+@mcp.tool()
+def cv_interview_summary() -> str:
+    """The whole interview in one table, once every question has been put.
+
+    Coaching used to happen question by question, which cost the user the thread
+    of the interview: each aside invited a discussion, and the next question
+    arrived after it. This is the one place it belongs — every question beside
+    what they actually said, read in a single sitting when nothing is riding on
+    the next answer.
+
+    The `recommended_answer` column comes back EMPTY. This server runs no model
+    and has no business inventing advice; fill each cell yourself, from the
+    requirement and their answer, and show `coaching_disclaimer` beneath the
+    table. Nothing here reaches the corpus — a recommendation is preparation for
+    a room, never a claim on a CV.
+    """
+    if _session.interview is None:
+        return _err("no interview", hint="call cv_interview first")
+
+    interview = _session.interview
+    answered, total = interview.progress()
+    rows = []
+    for question in interview.questions:
+        answer = interview.answers.get(question.id)
+        rows.append(
+            {
+                "question_id": question.id,
+                "question": question.text,
+                "requirement": question.requirement,
+                "verdict": str(question.verdict),
+                "answered": answer.user_said if answer else None,
+                "confirms_gap": bool(answer and answer.confirms_gap),
+                "proposals": [p.id for p in answer.proposals] if answer else [],
+                "recommended_answer": "",
+            }
+        )
+    return _ok(
+        {
+            "answered": answered,
+            "total": total,
+            "rows": rows,
+            "confirmed_gaps": interview.confirmed_gaps(),
+            "instruction": (
+                "Render this as a table: question, what they answered, and your "
+                "recommended answer. Write the recommendation column yourself — the "
+                "server supplies the column, not the advice. Mark a row with "
+                "confirms_gap as a confirmed gap and recommend nothing for it: it "
+                "stays off the CV rather than being softened. Show the "
+                "coaching_disclaimer under the table."
+            ),
             "coaching_disclaimer": COACHING_DISCLAIMER,
         }
     )
@@ -713,12 +815,34 @@ def cv_record_answer(question_id: str, user_said: str) -> str:
 
 
 @mcp.tool()
-def cv_confirm_evidence(proposal_id: str, verified: bool, claim: str | None = None) -> str:
-    """Accept a proposed entry. The only route from an answer onto the CV.
+def cv_confirm_evidence(
+    proposal_id: str,
+    verified: bool,
+    role_id: str | None = None,
+    mechanism: str | None = None,
+    claim: str | None = None,
+    measured_figure: str | None = None,
+) -> str:
+    """Accept a proposed entry and WRITE it to the corpus.
 
-    `verified` must reflect what the user actually said: true only when a figure
-    was measured, false when it is an estimate — in which case it renders as a
-    placeholder rather than a number.
+    This is the only route from an answer onto the CV, and it has to actually be
+    one: it used to set a flag and return, so the guarded path — verbatim
+    capture, then confirmation — reached nothing, and the only tool that wrote
+    was `cv_corpus_add`, which takes the agent's own text. The guarantee was
+    inverted in practice.
+
+    `claim` is the user's wording, theirs to shorten at this point: a proposal is
+    their raw answer, which is usually longer than a bullet. Do not improve it.
+
+    `mechanism` is the user's answer to HOW they brought it about. Ask them; a
+    claim with no mechanism is an assertion.
+
+    A figure is written ONLY from `measured_figure`, and only when `verified` is
+    true. The `figure` a proposal carries is a hint and nothing more: it is the
+    first number found anywhere in the answer, so it is routinely bound to a
+    sentence that never contained it, and it has matched list numbering ("1.")
+    as readily as a real metric. Ask the user what the number is and whether they
+    counted it; pass their answer. Never pass the proposal's hint unchecked.
     """
     if _session.interview is None:
         return _err("no interview")
@@ -726,12 +850,50 @@ def cv_confirm_evidence(proposal_id: str, verified: bool, claim: str | None = No
         proposal = _session.interview.confirm(proposal_id, verified=verified, claim=claim)
     except InterviewError as exc:
         return _err(str(exc))
+
+    if not role_id:
+        return _err(
+            "a bullet belongs to a role — say which one",
+            hint=(
+                "Pass role_id. The roles in this corpus are: "
+                + ", ".join(r.id for r in _session.corpus.roles)
+                if _session.corpus
+                else "Pass role_id."
+            ),
+        )
+    if not mechanism:
+        return _err(
+            "a claim with no mechanism is an assertion",
+            hint=(
+                "Ask the user HOW they brought it about, and pass their answer. That is "
+                "the half a profile never states, and the half that makes a bullet evidence."
+            ),
+        )
+
+    figure = measured_figure.strip() if (verified and measured_figure) else None
+
+    path = str(_session.corpus_path) if _session.corpus_path else None
+    bullet = NewBullet(
+        id=_suggest_bullet_id(role_id, proposal.claim),
+        claim=proposal.claim,
+        mechanism=mechanism,
+        tags=proposal.tags,
+        metric_value=figure,
+    )
+    try:
+        apply(path, lambda text: add_bullet(text, role_id, bullet))
+    except EditError as exc:
+        return _err(str(exc))
+    _session.load(path)
     _session.kit_stale = _session.kit_dir is not None
     return _ok(
         {
             "confirmed": proposal.id,
+            "written_to": role_id,
+            "bullet": bullet.id,
             "claim": proposal.claim,
-            "verified": proposal.verified,
+            "verified": bool(figure),
+            "figure": figure,
             "note": (
                 "Anything already written to disk is now out of date. Re-render before "
                 "the user sends it anywhere."

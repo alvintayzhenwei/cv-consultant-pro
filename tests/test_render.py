@@ -9,6 +9,8 @@ from cv_consultant_pro.jd import parse_jd
 from cv_consultant_pro.match import score
 from cv_consultant_pro.render import AuditError, render, select
 
+from .fixtures import NURSE
+
 CORPUS = """
 person:
   name: Test Person
@@ -113,3 +115,33 @@ def test_the_audit_refuses_output_whose_bullets_are_not_in_the_corpus() -> None:
     with pytest.raises(AuditError) as err:
         render(corpus, jd, card, selection)
     assert "not-in-corpus" in str(err.value)
+
+
+def test_the_line_under_the_name_can_be_something_other_than_the_posting() -> None:
+    """A CV going into a talent pool must not announce a role nobody applied for.
+
+    The heading was hardwired to the posting title, which is right for one
+    application and wrong everywhere else: uploaded to a centralised candidate
+    pool it claims an application that was never made, and a recruiter searching
+    that pool reads a job title belonging to another company.
+    """
+    from cv_consultant_pro.render import build_document
+
+    corpus = load_corpus_text(NURSE.corpus)
+    jd = parse_jd(NURSE.posting, title="Ward Sister, St Elsewhere")
+    card = score(jd, corpus)
+    selection = select(corpus, card)
+
+    default, _t, _p = build_document(corpus, jd, card, selection)
+    assert default.target_title == "Ward Sister, St Elsewhere"
+
+    current, _t, _p = build_document(corpus, jd, card, selection, target="current")
+    assert current.target_title and current.target_title != "Ward Sister, St Elsewhere"
+
+    none, _t, _p = build_document(corpus, jd, card, selection, target="none")
+    assert none.target_title is None
+
+    headline, _t, _p = build_document(
+        corpus, jd, card, selection, target="Senior Nurse · Acute Care"
+    )
+    assert headline.target_title == "Senior Nurse · Acute Care"

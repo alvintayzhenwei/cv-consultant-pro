@@ -169,6 +169,8 @@ def test_confirming_evidence_marks_anything_already_written_out_of_date(
         mcp_server.cv_confirm_evidence,
         proposal_id=recorded["proposals"][0]["id"],
         verified=False,
+        role_id="royal-ward-sister",
+        mechanism="running the programme alongside the ward rota",
     )
     assert result["verified"] is False
     assert call(mcp_server.cv_status)["kit_out_of_date"] is True
@@ -289,6 +291,7 @@ def test_every_tool_is_registered_with_the_server() -> None:
         "cv_score",
         "cv_render",
         "cv_interview",
+        "cv_interview_summary",
         "cv_acknowledge",
         "cv_next_question",
         "cv_record_answer",
@@ -406,3 +409,172 @@ def test_the_agent_cannot_be_asked_to_invent_a_figure() -> None:
 
     params = set(inspect.signature(mcp_server.cv_fill_placeholder).parameters)
     assert params == {"bullet_id", "measured_figure", "keep_placeholder"}
+
+
+# ── a confirmed proposal has to actually land ───────────────────────────────
+def test_confirming_a_proposal_writes_it_into_the_corpus(scored, fresh_session) -> None:
+    """The interview's guarded path must be the one that reaches the CV.
+
+    `cv_record_answer` deliberately has no parameter for an agent's own wording,
+    and `cv_confirm_evidence` calls itself the only route from an answer onto the
+    CV. That guarantee is worth nothing if confirming writes nothing: the only
+    tool that did write was `cv_corpus_add`, which takes the agent's text — so
+    the guarded path was a dead end and the unguarded one did all the work.
+    """
+    before = fresh_session.read_text(encoding="utf-8")
+    call(mcp_server.cv_interview)
+    call(mcp_server.cv_acknowledge)
+    question = call(mcp_server.cv_next_question)
+    recorded = call(
+        mcp_server.cv_record_answer,
+        question_id=question["id"],
+        user_said="I led the preceptorship programme for newly qualified nurses.",
+    )
+    result = call(
+        mcp_server.cv_confirm_evidence,
+        proposal_id=recorded["proposals"][0]["id"],
+        verified=False,
+        role_id="royal-ward-sister",
+        mechanism="running the programme alongside the ward rota",
+    )
+    assert "error" not in result, result
+    after = fresh_session.read_text(encoding="utf-8")
+    assert after != before, "confirming wrote nothing to the corpus"
+    assert "preceptorship programme" in after
+
+
+def test_a_confirmed_proposal_needs_somewhere_to_go(scored) -> None:
+    """A bullet belongs to a role. Refusing beats guessing which one."""
+    call(mcp_server.cv_interview)
+    call(mcp_server.cv_acknowledge)
+    question = call(mcp_server.cv_next_question)
+    recorded = call(
+        mcp_server.cv_record_answer,
+        question_id=question["id"],
+        user_said="I led the preceptorship programme.",
+    )
+    result = call(
+        mcp_server.cv_confirm_evidence,
+        proposal_id=recorded["proposals"][0]["id"],
+        verified=False,
+    )
+    assert "error" in result
+    assert "role" in result["error"].lower()
+
+
+def test_an_unmeasured_figure_never_becomes_a_number_on_the_cv(scored, fresh_session) -> None:
+    """`_propose` lifts the first number anywhere in the answer, so it is often
+    bound to a claim that does not contain it. Attaching that as a measured
+    metric manufactures a figure, which is the one thing this tool must not do.
+    """
+    call(mcp_server.cv_interview)
+    call(mcp_server.cv_acknowledge)
+    question = call(mcp_server.cv_next_question)
+    recorded = call(
+        mcp_server.cv_record_answer,
+        question_id=question["id"],
+        user_said="1. I ran the ward. Separately, our audit score was 95%.",
+    )
+    call(
+        mcp_server.cv_confirm_evidence,
+        proposal_id=recorded["proposals"][0]["id"],
+        verified=True,
+        role_id="royal-ward-sister",
+        mechanism="day-to-day charge of the ward",
+    )
+    text = fresh_session.read_text(encoding="utf-8")
+    assert "value: \"1.\"" not in text and "value: '1.'" not in text
+
+
+# ── the interview asks; it does not answer ──────────────────────────────────
+def test_a_question_tells_the_user_to_go_beyond_what_is_already_recorded(scored) -> None:
+    """A question carrying context reads as something to paste back.
+
+    Reported by the first real user: shown what the corpus already holds, people
+    echo it. The question has to say, in the payload rather than in a docstring
+    the host may skip, that the answer must add what is NOT on record.
+    """
+    call(mcp_server.cv_interview)
+    call(mcp_server.cv_acknowledge)
+    question = call(mcp_server.cv_next_question)
+    assert "elaborate" in question
+    assert question["elaborate"].strip()
+    assert "instruction" in question
+
+
+def test_a_question_forbids_suggesting_an_answer_before_the_user_speaks(scored) -> None:
+    """Coaching belongs AFTER the answer, and the tool has to say so where the
+    agent will actually read it. Offering a model answer with the question puts
+    the words in first and derails the run — the user answers the suggestion.
+    """
+    call(mcp_server.cv_interview)
+    call(mcp_server.cv_acknowledge)
+    instruction = call(mcp_server.cv_next_question)["instruction"].lower()
+    assert "do not" in instruction
+    assert "suggest" in instruction or "answer" in instruction
+
+
+def test_the_interview_ends_in_one_table_rather_than_ten_asides(scored) -> None:
+    """Per-question coaching scattered through the run loses the thread. One
+    summary at the end puts every answer beside its recommendation in a single
+    place the user can read once the interview is over.
+    """
+    call(mcp_server.cv_interview)
+    call(mcp_server.cv_acknowledge)
+    question = call(mcp_server.cv_next_question)
+    call(
+        mcp_server.cv_record_answer,
+        question_id=question["id"],
+        user_said="I led the preceptorship programme for newly qualified nurses.",
+    )
+    summary = call(mcp_server.cv_interview_summary)
+    assert summary["answered"] == 1
+    row = summary["rows"][0]
+    assert row["question_id"] == question["id"]
+    assert row["requirement"]
+    assert row["answered"] == "I led the preceptorship programme for newly qualified nurses."
+    assert "verdict" in row
+    # The recommendation is the agent's to write, so the server hands it the
+    # column rather than inventing advice it has no model to produce.
+    assert "recommended_answer" in row
+    assert summary["coaching_disclaimer"]
+    assert "table" in summary["instruction"].lower()
+
+
+def test_the_summary_marks_a_question_nobody_answered(scored) -> None:
+    """A blank row is the point: it shows what was skipped."""
+    call(mcp_server.cv_interview)
+    call(mcp_server.cv_acknowledge)
+    call(mcp_server.cv_next_question)
+    summary = call(mcp_server.cv_interview_summary)
+    assert summary["answered"] == 0
+    assert all(row["answered"] is None for row in summary["rows"])
+
+
+def test_the_kit_says_how_to_get_a_pdf(scored, tmp_path) -> None:
+    """A kit is .md, .docx and .html — and a person asked for a PDF.
+
+    No PDF is generated on purpose: producing one needs a browser engine or a
+    native toolchain, and this installs with `uvx` and four pure dependencies.
+    The HTML is already print-ready (A4 @page, zero margin, colour-adjust), so
+    the browser the user already has does it exactly. That is only true if the
+    tool SAYS so, which it did not.
+    """
+    kit = call(mcp_server.cv_render, out_dir=str(tmp_path / "kit"))
+    assert "pdf" in kit
+    assert "cv.html" in kit["pdf"]
+
+
+def test_the_kit_says_the_docx_ignores_the_chosen_layout(scored, tmp_path) -> None:
+    """Reported as "doc version not the same as per HTML", and it is by design.
+
+    The .docx is the SUBMIT format: one column, no tables, a standard font,
+    dull on purpose, because parsing is the only hard gate on an application.
+    Several layouts look good precisely by doing what a parser mishandles. But
+    a user who picks Rail and opens the .docx has every reason to expect Rail,
+    so the divergence has to be stated rather than discovered.
+    """
+    kit = call(mcp_server.cv_render, out_dir=str(tmp_path / "kit"))
+    assert "docx_note" in kit
+    note = kit["docx_note"].lower()
+    assert "layout" in note

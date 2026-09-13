@@ -43,6 +43,13 @@ AUTHENTICITY_NOTICE = (
     "you generate afterwards."
 )
 
+ELABORATE_PROMPT = (
+    "Answer in more detail than whatever is already on record. What is recorded is "
+    "the part that needs no interview; this is for what is not — what you actually "
+    "did, what you decided, and what it changed. A sentence repeating the summary "
+    "above recovers nothing."
+)
+
 COACHING_DISCLAIMER = (
     "This is a suggestion about the question, not a fact about you. AI guidance "
     "is often wrong on specifics, and confidently so. Verify anything you intend "
@@ -114,14 +121,65 @@ _NUMBER = re.compile(
     re.IGNORECASE,
 )
 
+#: The "1." and "2)" a person types when answering several things at once.
+#:
+#: Stripped before any figure is looked for, because a bare digit satisfies
+#: _NUMBER and an answer opening "1. My site is a playground…" offered **1.** as
+#: the bullet's measured value. Making the unit mandatory instead was tried and
+#: is worse: it also discards "12 nurses a year", since the unit list is a
+#: curated allowlist and cannot hold every noun. This targets the actual defect
+#: and leaves real figures alone.
+_LIST_MARKER = re.compile(r"^[ \t]*\d+[.)]\s+", re.MULTILINE)
+
+#: Denials carrying no first-person verb, which the phrase list above cannot see.
+#: "No ML training or fine-tuning, only applied AI via LLM" is as plain an
+#: admission as English offers and matched none of the seventeen — so it was
+#: recorded as evidence and offered back as a bullet to put on a CV.
+#:
+#: Each is anchored so it cannot swallow an achievement. "No customer-visible
+#: downtime across eighteen months of weekly releases" opens on the same word and
+#: is a claim, not a confession, so a bare leading "no" counts only when the whole
+#: answer is SHORT: someone conceding a gap says so briefly and stops.
+_GAP_PATTERNS = (
+    re.compile(
+        r"\bno\b[\w\s-]{0,24}\b(experience|training|exposure|background|involvement)\b",
+        re.IGNORECASE,
+    ),
+    re.compile(r"\bnever\b\s+(done|used|worked|built|led|managed|shipped|run)\b", re.IGNORECASE),
+    re.compile(r"\bnot\s+(something|part of|my|an area)\b", re.IGNORECASE),
+    re.compile(r"^(no|none|nope)\b.{0,90}$", re.IGNORECASE | re.DOTALL),
+)
+
 
 def _gap_admission(text: str) -> bool:
     lowered = text.lower()
-    return any(phrase in lowered for phrase in _GAP_PHRASES)
+    if any(phrase in lowered for phrase in _GAP_PHRASES):
+        return True
+    return any(pattern.search(text.strip()) for pattern in _GAP_PATTERNS)
+
+
+def _unpack(item) -> tuple[str, Verdict, list[str], list[str]]:
+    """Accept a scorecard Row, or the bare (text, verdict) pair.
+
+    The pair form is what the ranking tests use, and it carries no evidence, so
+    it can only ever produce the blunt note. A Row knows whether anything in the
+    corpus actually supports the requirement and whether a declared skill
+    matched its phrasing — which is the difference between a truthful probe and
+    a reassuring one.
+    """
+    if isinstance(item, tuple):
+        text, verdict = item
+        return text, verdict, [], []
+    return (
+        item.requirement.text,
+        item.verdict,
+        list(item.all_evidence_ids),
+        list(item.skill_names),
+    )
 
 
 def build_questions(
-    jd_requirements: list[tuple[str, Verdict]],
+    jd_requirements,
     corpus: Corpus,
     *,
     limit: int = QUESTION_COUNT,
@@ -133,12 +191,13 @@ def build_questions(
     about one you do not is the one that might recover something.
     """
     order = {Verdict.GAP: 0, Verdict.PARTIAL: 1, Verdict.STRONG: 2}
-    ranked = sorted(jd_requirements, key=lambda pair: order[pair[1]])
+    unpacked = [_unpack(item) for item in jd_requirements]
+    ranked = sorted(unpacked, key=lambda row: order[row[1]])
 
     positions = {p.id: p for p in corpus.positions}
     questions: list[Question] = []
 
-    for index, (requirement, verdict) in enumerate(ranked[:limit], start=1):
+    for index, (requirement, verdict, evidence, skills) in enumerate(ranked[:limit], start=1):
         position = _closest_position(requirement, corpus)
         questions.append(
             Question(
@@ -150,7 +209,7 @@ def build_questions(
                     Preparedness.PREPARED if position else Preparedness.UNPREPARED
                 ),
                 position_id=position.id if position else None,
-                probes=_probe_note(verdict),
+                probes=_probe_note(verdict, evidence, skills),
             )
         )
         if position:
@@ -158,13 +217,41 @@ def build_questions(
     return questions
 
 
-def _probe_note(verdict: Verdict) -> str:
+def _probe_note(verdict: Verdict, evidence: list[str] | None = None, skills: list[str] | None = None) -> str:
+    evidence = evidence or []
+    skills = skills or []
+
     if verdict is Verdict.GAP:
+        # A GAP is not proof of an empty corpus, and saying so sends the user off
+        # to re-describe work they have already recorded. Two other causes are
+        # far commoner: a compound line failing on its weakest part while the
+        # corpus answers the rest, and a line missing only because no declared
+        # skill uses the posting's words. The second is a one-line fix in the
+        # corpus, not an interview answer — so it has to be said, not hidden
+        # behind a message about missing experience.
+        if evidence and not skills:
+            return (
+                f"{len(evidence)} bullets in the corpus support this, but no declared "
+                "skill matches the posting's phrasing, so it scores as a gap. If you do "
+                "have this, the fix is usually an alias on an existing skill rather than "
+                "a new answer. Say so if the wording is the only thing missing."
+            )
+        if evidence:
+            return (
+                f"Scored a gap, yet {len(evidence)} bullets support part of it — most "
+                "likely a compound requirement failing on one half. Answer the half the "
+                "corpus cannot."
+            )
         return (
             "The corpus holds no evidence for this. If you have done it and simply "
             "never recorded it, this is where it gets recovered."
         )
     if verdict is Verdict.PARTIAL:
+        if evidence and not skills:
+            return (
+                "Partly evidenced by bullets, but no declared skill matches the posting's "
+                "wording — an alias may be worth more here than a new answer."
+            )
         return "Partly evidenced. A specific may be missing rather than the whole thing."
     return "Already evidenced. Worth rehearsing rather than researching."
 
@@ -259,13 +346,18 @@ class Interview:
     def _propose(self, question: Question, user_said: str) -> Proposal | None:
         """Draft a corpus entry from the user's words. Never from the agent's."""
         self._counter += 1
-        numbers = _NUMBER.findall(user_said)
         claim = user_said.strip()
         if len(claim) > 240:
             # Too long to be a bullet. Keep the whole thing as provenance and let
             # the user shorten it at confirmation — truncating here would put
             # words in their mouth by omission.
             claim = claim[:240].rsplit(" ", 1)[0]
+        # Read the figure out of the CLAIM, never out of the whole answer. The
+        # answer-wide search bound a number from one sentence to a claim
+        # truncated before it ever reached that sentence: a 95% accuracy figure
+        # landed on a claim about two unrelated tools, and a two-month launch
+        # figure on a claim about ideation.
+        numbers = _NUMBER.findall(_LIST_MARKER.sub("", claim))
         return Proposal(
             id=f"p{self._counter}",
             question_id=question.id,
@@ -307,13 +399,13 @@ class Interview:
 
 
 def interview_from_scorecard(card: Scorecard, corpus: Corpus) -> Interview:
-    requirements = [(row.requirement.text, row.verdict) for row in card.rows]
-    return Interview(build_questions(requirements, corpus))
+    return Interview(build_questions(card.rows, corpus))
 
 
 __all__ = [
     "AUTHENTICITY_NOTICE",
     "COACHING_DISCLAIMER",
+    "ELABORATE_PROMPT",
     "QUESTION_COUNT",
     "Answer",
     "Interview",
