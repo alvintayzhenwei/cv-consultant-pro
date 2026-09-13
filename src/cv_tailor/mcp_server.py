@@ -639,7 +639,7 @@ def cv_explain() -> str:
 
 
 def main() -> None:
-    """Entry point for `uvx cv-tailor-mcp` and for both plugin manifests."""
+    """Entry point for `uvx cv-tailor-serve` and for both plugin manifests."""
     mcp.run()
 
 

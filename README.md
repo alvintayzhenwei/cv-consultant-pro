@@ -3,7 +3,7 @@
 [![CI](https://img.shields.io/github/actions/workflow/status/alvintayzhenwei/cv-tailor/ci.yml?branch=main&label=CI&logo=github)](https://github.com/alvintayzhenwei/cv-tailor/actions/workflows/ci.yml)
 [![Audit](https://img.shields.io/github/actions/workflow/status/alvintayzhenwei/cv-tailor/audit.yml?branch=main&label=Audit&logo=github)](https://github.com/alvintayzhenwei/cv-tailor/actions/workflows/audit.yml)
 [![CodeQL](https://img.shields.io/github/actions/workflow/status/alvintayzhenwei/cv-tailor/codeql.yml?branch=main&label=CodeQL&logo=github)](https://github.com/alvintayzhenwei/cv-tailor/actions/workflows/codeql.yml)
-[![tests](https://img.shields.io/badge/tests-260%20passing-brightgreen)](tests/)
+[![tests](https://img.shields.io/badge/tests-262%20passing-brightgreen)](tests/)
 [![license](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
 
 <!--
@@ -44,7 +44,7 @@ install, then talk to your assistant normally: *"tailor my CV for this posting"*
 **Claude Code**
 
 ```bash
-claude mcp add cv-tailor -- uvx --from cv-tailor cv-tailor-mcp
+claude mcp add cv-tailor -- uvx --from cv-tailor cv-tailor-serve
 ```
 
 Or install the whole plugin — server plus the conversation skill — from the marketplace in
@@ -58,7 +58,7 @@ this repository:
 **Codex**
 
 ```bash
-codex mcp add cv-tailor -- uvx --from cv-tailor cv-tailor-mcp
+codex mcp add cv-tailor -- uvx --from cv-tailor cv-tailor-serve
 ```
 
 Codex's plugin marketplace is CLI-only — the IDE extension does not load plugins, so use the
@@ -72,7 +72,7 @@ Codex's plugin marketplace is CLI-only — the IDE extension does not load plugi
     "cv-tailor": {
       "type": "stdio",
       "command": "uvx",
-      "args": ["--from", "cv-tailor", "cv-tailor-mcp"]
+      "args": ["--from", "cv-tailor", "cv-tailor-serve"]
     }
   }
 }

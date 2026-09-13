@@ -54,7 +54,12 @@ cv-tailor = "cv_tailor.cli:main"
 # client puts in its `command`. A separate entry point from the CLI because one
 # speaks to a person on a terminal and the other speaks JSON-RPC on stdout;
 # sharing one would mean a stray print breaking the protocol.
-cv-tailor-mcp = "cv_tailor.mcp_server:main"
+#
+# NOT named `cv-tailor-mcp`: that is an existing, unrelated PyPI project by
+# another author which also tailors CVs. Naming our command after someone
+# else's package means a user who drops `--from` installs and runs THEIR code,
+# and it borrows their name in our own documentation. See tests/test_packaging.
+cv-tailor-serve = "cv_tailor.mcp_server:main"
 
 [project.urls]
 Repository = "https://github.com/alvintayzhenwei/cv-tailor"

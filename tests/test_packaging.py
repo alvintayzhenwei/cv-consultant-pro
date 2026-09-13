@@ -238,3 +238,40 @@ def test_the_skill_repeats_the_rules_the_server_enforces() -> None:
     assert "own phrasing" in text or "own words" in text
     assert "estimated_placeholder" in text
     assert "exposure to" in text, "the skill must name the way a gap gets softened"
+
+
+#: PyPI projects belonging to somebody else. No command or package name here may
+#: be one of these. Sharing a stranger's package name sends anyone who omits
+#: `--from` to THEIR code, and takes their name in our own documentation.
+NOT_OURS = {
+    # An unrelated MCP server by another author that also tailors a CV to a job
+    # posting. Ours was called this in its first cut, in every install line.
+    "cv-tailor-mcp",
+}
+
+
+def test_nothing_here_is_named_after_someone_elses_project() -> None:
+    project = _pyproject()["project"]
+    claimed = set(project["scripts"]) | {project["name"]}
+    collision = claimed & NOT_OURS
+    assert not collision, (
+        f"{sorted(collision)} names an existing PyPI project by another author. "
+        "Rename ours: a command sharing a stranger's package name sends anyone who "
+        "omits `--from` to their code, and borrows their name in our own docs."
+    )
+
+
+def test_their_name_appears_nowhere_a_user_would_copy_from() -> None:
+    """Install lines get copied. Their project's name must not be in ours at all."""
+    surfaces = (
+        ROOT / "README.md",
+        ROOT / ".claude-plugin" / "plugin.json",
+        ROOT / ".codex-plugin" / "plugin.json",
+        ROOT / "skills" / "cv-tailor" / "SKILL.md",
+        ROOT / "src" / "cv_tailor" / "mcp_server.py",
+    )
+    for name in NOT_OURS:
+        for surface in surfaces:
+            assert name not in surface.read_text(encoding="utf-8"), (
+                f"{surface.name} mentions {name!r}, which is another author's project"
+            )

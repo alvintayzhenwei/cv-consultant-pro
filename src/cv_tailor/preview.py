@@ -168,7 +168,15 @@ def start_preview(document: CvDocument, *, open_browser: bool = True) -> Preview
         try:
             webbrowser.open(url)
         except Exception as exc:
-            print(f"Could not open preview URL in a browser ({url}): {exc}", file=sys.stderr)
+            # stderr, never stdout: this process speaks JSON-RPC on stdout, and a
+            # stray print there breaks the protocol outright.
+            #
+            # And WITHOUT the url. It carries the session token gating a page that
+            # holds a whole career history, and a host captures this stream into a
+            # log file — which outlives the conversation the url was returned in,
+            # and has different permissions. The caller already has the url.
+            print(f"could not open a browser ({exc}); the preview url was returned "
+                  "to you and still works", file=sys.stderr)
     return Preview(url=url, port=port, layouts=list(TEMPLATES), _server=server)
 
 
