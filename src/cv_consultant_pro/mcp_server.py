@@ -37,7 +37,7 @@ from .interview import COACHING_DISCLAIMER, InterviewError, interview_from_score
 from .jd import parse_jd
 from .match import Scorecard, Verdict, score
 from .preview import start_preview
-from .render import AuditError, build_document, render, select
+from .render import AuditError, build_document, render, select, summary_choices
 from .seed import SeedError, seed_from_pdf, to_corpus_yaml, to_notes_markdown
 from .session import Session
 from .templates import TEMPLATES, get_template, render_html
@@ -413,6 +413,67 @@ def cv_score() -> str:
     )
 
 
+@mcp.tool()
+def cv_summary(summary_id: str | None = None) -> str:
+    """Show the user their own summaries and let them choose which opens the CV.
+
+    Call with no argument to list them. Show the WHOLE list and say plainly what
+    the choice is:
+
+      * **tailored to this posting** — the marked one. Right when this CV is
+        going to this employer for this role.
+      * **general** — any of the others. Right when the CV lands in a
+        centralised talent pool, where one stored document has to answer every
+        search and a posting-shaped opening misrepresents them for the rest.
+
+    Then call again with their chosen `summary_id`. Do not pick for them: the
+    opening paragraph is a claim about who they are, and they wrote all of these.
+    """
+    if _session.corpus is None or _session.card is None:
+        return _err("score a posting first", hint="call cv_score")
+
+    if summary_id:
+        known = {s.id for s in _session.corpus.summaries}
+        if summary_id not in known:
+            return _err(
+                f"no summary with id {summary_id!r}",
+                hint=f"the corpus holds: {sorted(known)}",
+            )
+        _session.summary_id = summary_id
+        _session.kit_stale = _session.kit_dir is not None
+        return _ok({"chosen": summary_id})
+
+    title = _session.jd.title if _session.jd else None
+    choices = summary_choices(_session.corpus, _session.card, title=title)
+    if not choices:
+        return _err(
+            "the corpus holds no summary",
+            hint=(
+                "The CV will open without one rather than with an invented "
+                "paragraph. Offer to add one with cv_corpus_add."
+            ),
+        )
+    return _ok(
+        {
+            "summaries": [
+                {
+                    "id": c.id,
+                    "text": c.text,
+                    "tags": c.tags,
+                    "matches_this_posting": c.jd_match,
+                }
+                for c in choices
+            ],
+            "instruction": (
+                "Read the list out. Say which one this posting would pick and why, then "
+                "ask: is this CV going to THIS employer, or into a talent pool where one "
+                "document answers every search? Call cv_summary again with their choice."
+            ),
+        }
+    )
+
+
+
 # ── the document ────────────────────────────────────────────────────────────
 @mcp.tool()
 def cv_render(out_dir: str = "kits/latest") -> str:
@@ -429,7 +490,13 @@ def cv_render(out_dir: str = "kits/latest") -> str:
     template = get_template(_session.layout)
     selection = select(_session.corpus, _session.card)
     try:
-        kit = render(_session.corpus, _session.jd, _session.card, selection)
+        kit = render(
+            _session.corpus,
+            _session.jd,
+            _session.card,
+            selection,
+            summary_id=_session.summary_id,
+        )
     except AuditError as exc:
         return _err(f"the audit refused to write this: {exc}")
 

@@ -293,6 +293,7 @@ def test_every_tool_is_registered_with_the_server() -> None:
         "cv_next_question",
         "cv_record_answer",
         "cv_confirm_evidence",
+        "cv_summary",
         "cv_explain",
     }
 
@@ -328,3 +329,36 @@ def test_the_server_carries_its_rules_where_a_host_loads_them() -> None:
     assert "estimated_placeholder" in instructions
     assert "exposure to" in instructions
     assert "cv_status" in instructions
+
+
+# ── choosing the summary ────────────────────────────────────────────────────
+def test_the_summaries_are_offered_rather_than_chosen_for_the_user(scored) -> None:
+    """Which summary opens the CV is a claim about who they are."""
+    result = call(mcp_server.cv_summary)
+    ids = [s["id"] for s in result["summaries"]]
+    assert len(ids) == len(set(ids)) and ids
+    assert sum(1 for s in result["summaries"] if s["matches_this_posting"]) == 1
+    assert "talent pool" in result["instruction"]
+
+
+def test_a_chosen_summary_is_what_gets_rendered(scored, tmp_path) -> None:
+    offered = call(mcp_server.cv_summary)["summaries"]
+    other = next(s for s in offered if not s["matches_this_posting"])
+    call(mcp_server.cv_summary, summary_id=other["id"])
+
+    call(mcp_server.cv_render, out_dir=str(tmp_path / "kit"))
+    rendered = (tmp_path / "kit" / "cv.md").read_text(encoding="utf-8")
+    assert other["text"][:40] in rendered
+
+
+def test_an_unknown_summary_id_is_refused_and_names_the_real_ones(scored) -> None:
+    result = call(mcp_server.cv_summary, summary_id="not-a-summary")
+    assert "error" in result
+    assert "the corpus holds" in result["hint"]
+
+
+def test_changing_the_summary_marks_an_existing_kit_stale(scored, tmp_path) -> None:
+    call(mcp_server.cv_render, out_dir=str(tmp_path / "kit"))
+    offered = call(mcp_server.cv_summary)["summaries"]
+    call(mcp_server.cv_summary, summary_id=offered[0]["id"])
+    assert call(mcp_server.cv_status)["kit_out_of_date"] is True

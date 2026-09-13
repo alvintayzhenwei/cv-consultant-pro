@@ -48,3 +48,9 @@ requirements.audit.txt
 # expiring listing, and never ours to redistribute under this repo's licence —
 # one was tracked and shipped inside an sdist before this rule existed.
 /jd-*.txt
+/apple-*.json
+
+# Scratch output from running the five simulated professions end to end. The
+# corpora are derived from tests/fixtures (already committed) and the kits are
+# generated, so tracking either would duplicate a source or commit build output.
+/sim/

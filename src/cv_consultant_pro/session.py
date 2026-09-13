@@ -27,6 +27,7 @@ class Stage(StrEnum):
     CORPUS_INCOMPLETE = "corpus_incomplete"
     NEEDS_LAYOUT = "needs_layout"
     NEEDS_JD = "needs_jd"
+    NEEDS_SUMMARY = "needs_summary"
     SCORED = "scored"
     RENDERED = "rendered"
     INTERVIEWING = "interviewing"
@@ -63,6 +64,13 @@ class Session:
     card: Scorecard | None = None
     kit_dir: Path | None = None
     interview: Interview | None = None
+    #: Which authored summary opens the CV, once the user has chosen. None means
+    #: unasked — and the script asks before rendering, because the opening
+    #: paragraph is a claim about who someone IS. A posting-shaped answer is
+    #: right for one application and wrong for a talent pool, where a single
+    #: stored CV has to answer every search; across two real postings the same
+    #: corpus produced summaries describing two different professions.
+    summary_id: str | None = None
     #: Set when the corpus changes after a kit was written. A generated kit is a
     #: snapshot, and five of six went silently stale once already.
     kit_stale: bool = False
@@ -190,6 +198,18 @@ class Session:
 
         if self.kit_dir is None:
             gaps = len([r for r in self.card.rows if r.verdict is Verdict.GAP])
+            if self.summary_id is None and len(self.corpus.summaries) > 1:
+                return NextStep(
+                    stage=Stage.NEEDS_SUMMARY,
+                    say=(
+                        "Before the CV is written, one choice only the user can make: which "
+                        "summary opens it. Tailored to this posting, or a general one that "
+                        "holds up anywhere? Call cv_summary to show them their own summaries "
+                        "and which this posting would pick."
+                    ),
+                    then_call="cv_summary",
+                    detail={"gaps": gaps, "hard_filters": len(self.card.hard_filters)},
+                )
             return NextStep(
                 stage=Stage.SCORED,
                 say=(

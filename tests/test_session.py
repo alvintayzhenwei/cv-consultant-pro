@@ -80,11 +80,26 @@ def test_a_posting_that_has_been_read_is_scored_without_being_asked_about() -> N
 
 
 # ── the honest read comes before the document ───────────────────────────────
+def test_the_summary_is_chosen_before_a_cv_is_written() -> None:
+    """With more than one authored summary, the user picks which opens the CV.
+
+    A posting-shaped opening is right for one application and wrong for a talent
+    pool. The engine does not decide that.
+    """
+    session = _ready()
+    session.jd = parse_jd(NURSE.posting)
+    session.card = score(session.jd, session.corpus)
+    step = session.next_step()
+    assert step.stage is Stage.NEEDS_SUMMARY
+    assert step.then_call == "cv_summary"
+
+
 def test_the_score_is_reported_before_a_cv_is_written() -> None:
     """Rendering first would bury the gaps under a finished-looking document."""
     session = _ready()
     session.jd = parse_jd(NURSE.posting)
     session.card = score(session.jd, session.corpus)
+    session.summary_id = session.corpus.summaries[0].id
     step = session.next_step()
     assert step.stage is Stage.SCORED
     assert step.then_call == "cv_render"
@@ -96,6 +111,7 @@ def test_the_interview_is_offered_once_the_kit_exists() -> None:
     session = _ready()
     session.jd = parse_jd(NURSE.posting)
     session.card = score(session.jd, session.corpus)
+    session.summary_id = session.corpus.summaries[0].id
     session.kit_dir = Path("kits/latest")
     step = session.next_step()
     assert step.stage is Stage.RENDERED
@@ -108,6 +124,7 @@ def _interviewing() -> Session:
     session = _ready()
     session.jd = parse_jd(NURSE.posting)
     session.card = score(session.jd, session.corpus)
+    session.summary_id = session.corpus.summaries[0].id
     session.kit_dir = Path("kits/latest")
     session.interview = interview_from_scorecard(session.card, session.corpus)
     session.interview.acknowledge()
@@ -166,4 +183,5 @@ def test_the_same_script_runs_for_a_career_this_tool_was_not_written_for() -> No
     session.layout = "ledger"
     session.jd = parse_jd(ACCOUNTANT.posting)
     session.card = score(session.jd, session.corpus)
+    session.summary_id = session.corpus.summaries[0].id
     assert session.next_step().stage is Stage.SCORED
