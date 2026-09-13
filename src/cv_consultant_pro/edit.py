@@ -226,11 +226,74 @@ def apply(path: str | Path | None, change) -> str:
     return updated
 
 
+def _entry_span(lines: list[str], entry_id: str) -> tuple[int, int, str]:
+    """Where any `- id: <entry_id>` block starts and ends, and its key indent."""
+    start = None
+    indent = ""
+    for number, line in enumerate(lines):
+        match = re.match(r"^(\s*)-\s+id:\s*(.+?)\s*(#.*)?$", line)
+        if match and match.group(2).strip().strip("\"'") == entry_id:
+            start, indent = number, match.group(1) + "  "
+            break
+    if start is None:
+        raise EditError(f"no entry with id {entry_id!r} in the corpus")
+
+    for number in range(start + 1, len(lines)):
+        line = lines[number]
+        if line.strip() and not line.startswith(indent):
+            return start, number, indent
+        if re.match(rf"^{re.escape(indent)}-\s", line):
+            return start, number, indent
+    return start, len(lines), indent
+
+
+def set_metric(text: str, bullet_id: str, value: str) -> str:
+    """Promote a bullet's placeholder to a figure the user actually measured.
+
+    The token is replaced INSIDE the claim and mechanism as well as in the
+    metric block. The hole is written into the sentence — "cut release prep to
+    [N] minutes" — so changing only the metric would leave the CV still printing
+    "[N]" while the corpus claimed a number. That divergence is the worst of
+    both: an unfilled CV and a corpus that says it is filled.
+    """
+    if not value.strip():
+        raise EditError(
+            "a measured figure cannot be blank. If there is no number, keep the "
+            "placeholder instead — a visible gap is honest, a blank is not."
+        )
+
+    lines = text.splitlines()
+    start, end, _indent = _entry_span(lines, bullet_id)
+    block = lines[start:end]
+
+    token = None
+    for line in block:
+        found = re.search(r"placeholder:\s*[\"']?([^\"'\n]+?)[\"']?\s*$", line)
+        if found:
+            token = found.group(1).strip()
+            break
+    if token is None:
+        raise EditError(f"bullet {bullet_id!r} carries no placeholder to fill")
+
+    rewritten = []
+    for line in block:
+        if re.match(r"^\s*verified:", line):
+            rewritten.append(line.replace("false", "true"))
+        elif re.match(r"^\s*placeholder:", line):
+            pad = line[: len(line) - len(line.lstrip())]
+            rewritten.append(f"{pad}value: {_quote(value)}")
+        else:
+            rewritten.append(line.replace(token, value))
+    lines[start:end] = rewritten
+    return "\n".join(lines) + "\n"
+
+
 __all__ = [
     "EditError",
     "NewBullet",
     "add_bullet",
     "add_tags",
     "apply",
+    "set_metric",
     "set_role_dates",
 ]

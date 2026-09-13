@@ -294,6 +294,7 @@ def test_every_tool_is_registered_with_the_server() -> None:
         "cv_record_answer",
         "cv_confirm_evidence",
         "cv_summary",
+        "cv_fill_placeholder",
         "cv_explain",
     }
 
@@ -362,3 +363,46 @@ def test_changing_the_summary_marks_an_existing_kit_stale(scored, tmp_path) -> N
     offered = call(mcp_server.cv_summary)["summaries"]
     call(mcp_server.cv_summary, summary_id=offered[0]["id"])
     assert call(mcp_server.cv_status)["kit_out_of_date"] is True
+
+
+# ── settling figures before the CV exists ───────────────────────────────────
+def test_only_the_holes_that_will_appear_on_this_cv_are_offered(scored) -> None:
+    result = call(mcp_server.cv_fill_placeholder)
+    assert result["count"] == len(result["placeholders"])
+    for hole in result["placeholders"]:
+        assert hole["placeholder"] and hole["claim"]
+
+
+def test_keeping_a_placeholder_is_a_legitimate_answer(scored) -> None:
+    """"I have no number" must be answerable, or the rule cannot be satisfied."""
+    holes = call(mcp_server.cv_fill_placeholder)["placeholders"]
+    if not holes:
+        pytest.skip("this fixture renders no placeholders")
+    result = call(mcp_server.cv_fill_placeholder,
+                  bullet_id=holes[0]["bullet"], keep_placeholder=True)
+    assert result["settled"] == holes[0]["bullet"]
+
+
+def test_a_figure_for_a_bullet_this_cv_does_not_carry_is_refused(scored) -> None:
+    result = call(mcp_server.cv_fill_placeholder, bullet_id="not-on-this-cv",
+                  measured_figure="12")
+    assert "error" in result
+    assert "will appear" in result["hint"]
+
+
+def test_neither_a_figure_nor_a_decision_is_refused(scored) -> None:
+    """Calling with a bullet and no answer must not silently do nothing."""
+    holes = call(mcp_server.cv_fill_placeholder)["placeholders"]
+    if not holes:
+        pytest.skip("this fixture renders no placeholders")
+    result = call(mcp_server.cv_fill_placeholder, bullet_id=holes[0]["bullet"])
+    assert "error" in result
+    assert "keep_placeholder" in result["hint"]
+
+
+def test_the_agent_cannot_be_asked_to_invent_a_figure() -> None:
+    """There is no parameter for a number the user did not supply."""
+    import inspect
+
+    params = set(inspect.signature(mcp_server.cv_fill_placeholder).parameters)
+    assert params == {"bullet_id", "measured_figure", "keep_placeholder"}

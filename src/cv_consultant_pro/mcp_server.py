@@ -32,7 +32,15 @@ from mcp.server.fastmcp import FastMCP
 
 from .corpus import resolve_corpus_path
 from .docx import write_docx
-from .edit import EditError, NewBullet, add_bullet, add_tags, apply, set_role_dates
+from .edit import (
+    EditError,
+    NewBullet,
+    add_bullet,
+    add_tags,
+    apply,
+    set_metric,
+    set_role_dates,
+)
 from .interview import COACHING_DISCLAIMER, InterviewError, interview_from_scorecard
 from .jd import parse_jd
 from .match import Scorecard, Verdict, score
@@ -471,6 +479,72 @@ def cv_summary(summary_id: str | None = None) -> str:
             ),
         }
     )
+
+
+
+@mcp.tool()
+def cv_fill_placeholder(
+    bullet_id: str | None = None,
+    measured_figure: str | None = None,
+    keep_placeholder: bool = False,
+) -> str:
+    """Settle a figure that would otherwise render as a hole on the CV.
+
+    Call with no argument to see which placeholders will appear on THIS CV —
+    only those, not every hole in the corpus.
+
+    Then, for each, ask the user and call again:
+
+      * `measured_figure` — a real number they actually measured. It replaces
+        the placeholder and renders as a figure.
+      * `keep_placeholder=True` — they do not have one. The bullet keeps its
+        visible gap, which is honest and often better than a vague number.
+
+    Never supply a figure yourself, and never talk them into one. A number on a
+    CV is something they will be asked to defend in a room.
+    """
+    if _session.corpus is None or _session.card is None:
+        return _err("score a posting first", hint="call cv_score")
+
+    holes = _session.pending_placeholders()
+    if not bullet_id:
+        if not holes:
+            _session.figures_settled = True
+        return _ok({"placeholders": holes, "count": len(holes)})
+
+    known = {h["bullet"] for h in holes}
+    if bullet_id not in known:
+        return _err(
+            f"{bullet_id!r} carries no placeholder on this CV",
+            hint=f"the ones that will appear are: {sorted(known)}",
+        )
+
+    if keep_placeholder:
+        _session.acknowledged_placeholders.add(bullet_id)
+    elif measured_figure:
+        path = str(_session.corpus_path) if _session.corpus_path else None
+        try:
+            apply(path, lambda text: set_metric(text, bullet_id, measured_figure))
+        except EditError as exc:
+            return _err(str(exc))
+        _session.load(path)
+        _session.kit_stale = _session.kit_dir is not None
+    else:
+        return _err(
+            "say which it is",
+            hint=(
+                "Either pass measured_figure with a number the user actually measured, "
+                "or keep_placeholder=True if they do not have one."
+            ),
+        )
+
+    remaining = [
+        h for h in _session.pending_placeholders()
+        if h["bullet"] not in _session.acknowledged_placeholders
+    ]
+    if not remaining:
+        _session.figures_settled = True
+    return _ok({"settled": bullet_id, "remaining": remaining})
 
 
 

@@ -100,6 +100,7 @@ def test_the_score_is_reported_before_a_cv_is_written() -> None:
     session.jd = parse_jd(NURSE.posting)
     session.card = score(session.jd, session.corpus)
     session.summary_id = session.corpus.summaries[0].id
+    session.figures_settled = True
     step = session.next_step()
     assert step.stage is Stage.SCORED
     assert step.then_call == "cv_render"
@@ -112,6 +113,7 @@ def test_the_interview_is_offered_once_the_kit_exists() -> None:
     session.jd = parse_jd(NURSE.posting)
     session.card = score(session.jd, session.corpus)
     session.summary_id = session.corpus.summaries[0].id
+    session.figures_settled = True
     session.kit_dir = Path("kits/latest")
     step = session.next_step()
     assert step.stage is Stage.RENDERED
@@ -125,6 +127,7 @@ def _interviewing() -> Session:
     session.jd = parse_jd(NURSE.posting)
     session.card = score(session.jd, session.corpus)
     session.summary_id = session.corpus.summaries[0].id
+    session.figures_settled = True
     session.kit_dir = Path("kits/latest")
     session.interview = interview_from_scorecard(session.card, session.corpus)
     session.interview.acknowledge()
@@ -184,4 +187,5 @@ def test_the_same_script_runs_for_a_career_this_tool_was_not_written_for() -> No
     session.jd = parse_jd(ACCOUNTANT.posting)
     session.card = score(session.jd, session.corpus)
     session.summary_id = session.corpus.summaries[0].id
+    session.figures_settled = True
     assert session.next_step().stage is Stage.SCORED
