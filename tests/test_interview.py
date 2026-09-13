@@ -168,3 +168,46 @@ def test_there_is_no_parameter_for_an_agent_to_submit_its_own_wording() -> None:
         "record_answer grew a parameter. If an agent can pass text that is not the "
         f"user's own, the whole truth loop is decorative. Found: {params}"
     )
+
+
+def test_a_probe_does_not_claim_the_corpus_is_empty_when_it_is_not() -> None:
+    """A GAP verdict does not mean the corpus holds nothing on the subject.
+
+    Two ways a requirement fails with evidence sitting right there: a compound
+    line fails on its weakest part while the corpus answers the rest, and a line
+    misses entirely because no declared skill uses the posting's phrasing.
+
+    Found live. "Experience architecting agentic AI products utilizing
+    tool-calling, memory management, and evaluation pipelines" scored GAP with
+    three supporting bullets in all_evidence_ids and an empty skill list, on a
+    corpus holding published MCP servers and an LLM-as-judge harness. The probe
+    said the corpus held no evidence, so the user answered by re-describing work
+    already recorded — when the actual fix was declaring one alias.
+    """
+    from cv_consultant_pro.jd import Requirement, Tier
+    from cv_consultant_pro.match import Row
+
+    row = Row(
+        requirement=Requirement(
+            text="Experience architecting agentic AI products", tier=Tier.PREFERRED
+        ),
+        verdict=Verdict.GAP,
+        all_evidence_ids=["b-one", "b-two"],
+        skill_names=[],
+    )
+    probes = build_questions([row], CORPUS, limit=1)[0].probes
+    assert "holds no evidence" not in probes, probes
+    assert "alias" in probes.lower(), probes
+
+
+def test_a_probe_still_says_so_when_the_corpus_really_is_empty() -> None:
+    """The reassuring message must not replace the honest one."""
+    from cv_consultant_pro.jd import Requirement, Tier
+    from cv_consultant_pro.match import Row
+
+    row = Row(
+        requirement=Requirement(text="Experience with submarine welding", tier=Tier.PREFERRED),
+        verdict=Verdict.GAP,
+    )
+    probes = build_questions([row], CORPUS, limit=1)[0].probes
+    assert "holds no evidence" in probes, probes
