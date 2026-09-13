@@ -24,6 +24,7 @@ the signal it should not exist at all.
 from __future__ import annotations
 
 import secrets
+import sys
 import threading
 import webbrowser
 from dataclasses import dataclass
@@ -166,8 +167,8 @@ def start_preview(document: CvDocument, *, open_browser: bool = True) -> Preview
         # the URL is returned either way.
         try:
             webbrowser.open(url)
-        except Exception:
-            pass
+        except Exception as exc:
+            print(f"Could not open preview URL in a browser ({url}): {exc}", file=sys.stderr)
     return Preview(url=url, port=port, layouts=list(TEMPLATES), _server=server)
 
 
