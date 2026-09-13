@@ -3,7 +3,7 @@
 [![CI](https://img.shields.io/github/actions/workflow/status/alvintayzhenwei/cv-consultant-pro/ci.yml?branch=main&label=CI&logo=github)](https://github.com/alvintayzhenwei/cv-consultant-pro/actions/workflows/ci.yml)
 [![Audit](https://img.shields.io/github/actions/workflow/status/alvintayzhenwei/cv-consultant-pro/audit.yml?branch=main&label=Audit&logo=github)](https://github.com/alvintayzhenwei/cv-consultant-pro/actions/workflows/audit.yml)
 [![CodeQL](https://img.shields.io/github/actions/workflow/status/alvintayzhenwei/cv-consultant-pro/codeql.yml?branch=main&label=CodeQL&logo=github)](https://github.com/alvintayzhenwei/cv-consultant-pro/actions/workflows/codeql.yml)
-[![tests](https://img.shields.io/badge/tests-332%20passing-brightgreen)](https://github.com/alvintayzhenwei/cv-consultant-pro/tree/main/tests)
+[![tests](https://img.shields.io/badge/tests-337%20passing-brightgreen)](https://github.com/alvintayzhenwei/cv-consultant-pro/tree/main/tests)
 [![license](https://img.shields.io/badge/license-MIT-blue)](https://github.com/alvintayzhenwei/cv-consultant-pro/blob/main/LICENSE)
 
 <!--

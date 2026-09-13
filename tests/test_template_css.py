@@ -108,3 +108,59 @@ def test_text_clears_the_body_contrast_bar(
         f"{template_id}: --{ink} ({values[ink]}) on --{ground} ({values[ground]}) "
         f"is {ratio:.2f}:1, under the 4.5:1 body bar — used for {what}"
     )
+
+
+def _bottom_inset(block: str) -> str | None:
+    """The bottom padding a CSS block declares, longhand or via the shorthand."""
+    longhand = re.search(r"(^|;|\s)padding-bottom\s*:\s*([^;]+)", block)
+    if longhand:
+        return longhand.group(2).strip()
+    shorthand = re.search(r"(^|;|\s)padding\s*:\s*([^;]+)", block)
+    if not shorthand:
+        return None
+    parts = shorthand.group(2).split()
+    if len(parts) == 1:
+        return parts[0]
+    if len(parts) in (2, 3):
+        return parts[0] if len(parts) == 2 else parts[2]
+    return parts[2]
+
+
+#: The element that IS the page for each layout. A single-column template insets
+#: the body; a railed one insets each column.
+PAGE_CONTAINERS = {"single": ("body",), "rail": (".rail", "main")}
+
+
+@pytest.mark.parametrize("template_id", sorted(TEMPLATES))
+def test_content_is_held_off_the_bottom_edge(template_id: str) -> None:
+    """Every layout keeps its last line clear of the paper edge.
+
+    Keystone declared no padding on `body` at all: it inset the sides through
+    `section { margin: 11px 16mm 0 }`, whose bottom is zero, so the final
+    certification sat flush against the end of the page. Reported from a
+    rendered CV. It matters past appearance — a printer cannot reach the edge
+    and a PDF reader crops there.
+
+    The older margin guard passed this template the whole time, because it only
+    asked whether `padding:` appeared ANYWHERE in the stylesheet, and Keystone
+    has padding on its header band, its contact strip and its list items. A
+    guard that cannot fail is not a guard, so this one names the element that
+    has to carry the inset and reads the value off it.
+    """
+    template = TEMPLATES[template_id]
+    css = template.css
+    containers = PAGE_CONTAINERS[template.layout]
+    found: dict[str, str | None] = {}
+    for selector_raw, block in re.findall(r"([^{}]+)\{([^}]*)\}", css):
+        selector = selector_raw.strip().splitlines()[-1].strip()
+        if selector in containers and _bottom_inset(block):
+            found[selector] = _bottom_inset(block)
+    missing = [c for c in containers if c not in found]
+    assert not missing, (
+        f"{template_id}: {', '.join(missing)} declares no bottom padding, so the last "
+        f"line renders against the paper edge"
+    )
+    for selector, value in found.items():
+        assert not value.startswith("0"), (
+            f"{template_id}: {selector} sets a bottom inset of {value}"
+        )

@@ -180,6 +180,12 @@ body {
   font-family: "Public Sans", "Segoe UI", system-ui, sans-serif;
   font-size: 10pt;
   line-height: 1.48;
+  /* Bottom only. The sides are inset by `section` and the top is the header
+     band, which is deliberately full-bleed — padding the body all round would
+     leave a white margin above the band and break the one thing this layout
+     is. With no bottom inset at all the last certification sat flush against
+     the paper edge, where a printer cannot reach and a PDF reader crops. */
+  padding-bottom: 15mm;
 }
 /* The band is one block, not two. `opacity` on .contact lightened its
    BACKGROUND as well as its text, which split the band into two tones with a
