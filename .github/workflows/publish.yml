@@ -52,6 +52,31 @@ jobs:
       - name: Install
         run: uv sync --extra dev
 
+      # A version number is spent permanently, so PyPI refuses a second upload
+      # of one -- correctly. But that refusal surfaces deep inside the publish
+      # action's Docker step, several hundred lines of `docker run` arguments
+      # down, where it reads as "the build failed" rather than "bump the
+      # version". Ask first, and say which it is.
+      #
+      # An unreachable PyPI is NOT a failure here: the upload itself refuses a
+      # duplicate regardless, so this check exists for the message, not the
+      # enforcement, and a network blip must not fail a release.
+      - name: Refuse a version PyPI already has
+        run: |
+          set -euo pipefail
+          version=$(uv run python -c "import tomllib, pathlib; print(tomllib.loads(pathlib.Path('pyproject.toml').read_text())['project']['version'])")
+          echo "About to publish cv-consultant-pro-mcp $version"
+          index=$(curl -fsS --max-time 20 https://pypi.org/simple/cv-consultant-pro-mcp/ || true)
+          if [ -z "$index" ]; then
+            echo "::warning::could not reach PyPI to pre-check $version; the upload still refuses a duplicate"
+            exit 0
+          fi
+          if printf '%s' "$index" | grep -qF -e "cv_consultant_pro_mcp-$version.tar.gz"                                              -e "cv_consultant_pro_mcp-$version-py3"; then
+            echo "::error::version $version is already on PyPI, so this upload will be rejected. Bump the version in pyproject.toml and both plugin manifests, commit, and cut a new release."
+            exit 1
+          fi
+          echo "Clear: $version is not on PyPI yet."
+
       # Never publish a build whose own tests do not pass. A version number is
       # spent permanently — it can be yanked, never replaced — so this is the
       # last moment the cost of being wrong is zero.
