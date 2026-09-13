@@ -175,16 +175,52 @@ def test_both_plugin_manifests_launch_the_same_server() -> None:
     assert claude["version"] == codex["version"] == _pyproject()["project"]["version"]
 
 
-def test_the_entry_point_the_manifests_launch_exists() -> None:
-    """`uvx cv-tailor-mcp` has to resolve to something, or nothing installs."""
+def test_what_the_manifests_INSTALL_is_what_this_project_PUBLISHES() -> None:
+    """The guard for a defect that reached the README and nearly reached PyPI.
+
+    `uvx NAME` resolves NAME as a PACKAGE, not as a command. The manifests said
+    `uvx cv-tailor-mcp` while the distribution is named `cv-tailor` — and
+    `cv-tailor-mcp` turned out to be an EXISTING, unrelated project on PyPI that
+    also tailors CVs. So anyone following the install line would have downloaded
+    and run a stranger's code, plausibly without noticing.
+
+    Hence this checks the two names against each other rather than checking
+    either alone. The command must be a real console script here, AND whatever
+    package `uvx` is told to resolve must be the one this pyproject publishes.
+    """
     import json
 
     claude = json.loads((ROOT / ".claude-plugin" / "plugin.json").read_text(encoding="utf-8"))
-    command = claude["mcpServers"]["cv-tailor"]
-    assert command["command"] == "uvx"
-    named = command["args"][-1]
-    assert named in _pyproject()["project"]["scripts"], (
-        f"the manifests launch {named!r}, which is not a console script in pyproject.toml"
+    launch = claude["mcpServers"]["cv-tailor"]
+    assert launch["command"] == "uvx"
+
+    args = launch["args"]
+    command = args[-1]
+    assert command in _pyproject()["project"]["scripts"], (
+        f"the manifests launch {command!r}, which is not a console script in pyproject.toml"
+    )
+
+    distribution = _pyproject()["project"]["name"]
+    if command == distribution:
+        assert args == [command], "a bare uvx is only correct when command == package"
+    else:
+        assert args[:2] == ["--from", distribution], (
+            f"the command {command!r} differs from the distribution {distribution!r}, so "
+            f"uvx needs `--from {distribution}`. Without it uvx resolves {command!r} as a "
+            "PACKAGE NAME on PyPI — which may belong to somebody else entirely."
+        )
+
+
+def test_the_readme_installs_the_same_thing_the_manifests_do() -> None:
+    """A copied-and-pasted README line is how most people will install this."""
+    import json
+
+    args = json.loads(
+        (ROOT / ".claude-plugin" / "plugin.json").read_text(encoding="utf-8")
+    )["mcpServers"]["cv-tailor"]["args"]
+    readme = (ROOT / "README.md").read_text(encoding="utf-8")
+    assert f"uvx {' '.join(args)}" in readme, (
+        "the README's install line disagrees with the plugin manifests"
     )
 
 
