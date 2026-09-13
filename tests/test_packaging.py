@@ -279,3 +279,26 @@ def test_their_name_appears_nowhere_a_user_would_copy_from() -> None:
             assert name not in surface.read_text(encoding="utf-8"), (
                 f"{surface.name} mentions {name!r}, which is another author's project"
             )
+
+
+def test_the_readme_has_no_relative_links() -> None:
+    """The README IS the PyPI project page, and PyPI has no repo to resolve against.
+
+    GitHub resolves `docs/sample-rail.png` against the repository; PyPI renders
+    the same markdown standalone, so a relative path there is a broken image or
+    a dead link. It shipped that way in 0.1.0 — the screenshot the README uses
+    to show what the tool produces was a broken-image icon on the project page,
+    which is the first thing a stranger sees.
+    """
+    readme = (ROOT / "README.md").read_text(encoding="utf-8")
+    # Markdown links and images, minus anchors and mailto.
+    targets = re.findall(r"!?\[[^\]]*\]\(([^)]+)\)", readme)
+    relative = [
+        t for t in targets
+        if not t.startswith(("http://", "https://", "#", "mailto:"))
+    ]
+    assert not relative, (
+        f"these README targets are relative and will break on PyPI: {relative}. "
+        "Use an absolute https:// URL — raw.githubusercontent.com for an image, "
+        "github.com/<owner>/<repo>/blob/main/... for a file."
+    )

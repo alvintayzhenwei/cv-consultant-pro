@@ -293,6 +293,8 @@ def test_every_tool_is_registered_with_the_server() -> None:
         "cv_next_question",
         "cv_record_answer",
         "cv_confirm_evidence",
+        "cv_summary",
+        "cv_fill_placeholder",
         "cv_explain",
     }
 
@@ -328,3 +330,79 @@ def test_the_server_carries_its_rules_where_a_host_loads_them() -> None:
     assert "estimated_placeholder" in instructions
     assert "exposure to" in instructions
     assert "cv_status" in instructions
+
+
+# ── choosing the summary ────────────────────────────────────────────────────
+def test_the_summaries_are_offered_rather_than_chosen_for_the_user(scored) -> None:
+    """Which summary opens the CV is a claim about who they are."""
+    result = call(mcp_server.cv_summary)
+    ids = [s["id"] for s in result["summaries"]]
+    assert len(ids) == len(set(ids)) and ids
+    assert sum(1 for s in result["summaries"] if s["matches_this_posting"]) == 1
+    assert "talent pool" in result["instruction"]
+
+
+def test_a_chosen_summary_is_what_gets_rendered(scored, tmp_path) -> None:
+    offered = call(mcp_server.cv_summary)["summaries"]
+    other = next(s for s in offered if not s["matches_this_posting"])
+    call(mcp_server.cv_summary, summary_id=other["id"])
+
+    call(mcp_server.cv_render, out_dir=str(tmp_path / "kit"))
+    rendered = (tmp_path / "kit" / "cv.md").read_text(encoding="utf-8")
+    assert other["text"][:40] in rendered
+
+
+def test_an_unknown_summary_id_is_refused_and_names_the_real_ones(scored) -> None:
+    result = call(mcp_server.cv_summary, summary_id="not-a-summary")
+    assert "error" in result
+    assert "the corpus holds" in result["hint"]
+
+
+def test_changing_the_summary_marks_an_existing_kit_stale(scored, tmp_path) -> None:
+    call(mcp_server.cv_render, out_dir=str(tmp_path / "kit"))
+    offered = call(mcp_server.cv_summary)["summaries"]
+    call(mcp_server.cv_summary, summary_id=offered[0]["id"])
+    assert call(mcp_server.cv_status)["kit_out_of_date"] is True
+
+
+# ── settling figures before the CV exists ───────────────────────────────────
+def test_only_the_holes_that_will_appear_on_this_cv_are_offered(scored) -> None:
+    result = call(mcp_server.cv_fill_placeholder)
+    assert result["count"] == len(result["placeholders"])
+    for hole in result["placeholders"]:
+        assert hole["placeholder"] and hole["claim"]
+
+
+def test_keeping_a_placeholder_is_a_legitimate_answer(scored) -> None:
+    """"I have no number" must be answerable, or the rule cannot be satisfied."""
+    holes = call(mcp_server.cv_fill_placeholder)["placeholders"]
+    if not holes:
+        pytest.skip("this fixture renders no placeholders")
+    result = call(mcp_server.cv_fill_placeholder,
+                  bullet_id=holes[0]["bullet"], keep_placeholder=True)
+    assert result["settled"] == holes[0]["bullet"]
+
+
+def test_a_figure_for_a_bullet_this_cv_does_not_carry_is_refused(scored) -> None:
+    result = call(mcp_server.cv_fill_placeholder, bullet_id="not-on-this-cv",
+                  measured_figure="12")
+    assert "error" in result
+    assert "will appear" in result["hint"]
+
+
+def test_neither_a_figure_nor_a_decision_is_refused(scored) -> None:
+    """Calling with a bullet and no answer must not silently do nothing."""
+    holes = call(mcp_server.cv_fill_placeholder)["placeholders"]
+    if not holes:
+        pytest.skip("this fixture renders no placeholders")
+    result = call(mcp_server.cv_fill_placeholder, bullet_id=holes[0]["bullet"])
+    assert "error" in result
+    assert "keep_placeholder" in result["hint"]
+
+
+def test_the_agent_cannot_be_asked_to_invent_a_figure() -> None:
+    """There is no parameter for a number the user did not supply."""
+    import inspect
+
+    params = set(inspect.signature(mcp_server.cv_fill_placeholder).parameters)
+    assert params == {"bullet_id", "measured_figure", "keep_placeholder"}

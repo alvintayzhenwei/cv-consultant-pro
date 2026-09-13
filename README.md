@@ -3,8 +3,8 @@
 [![CI](https://img.shields.io/github/actions/workflow/status/alvintayzhenwei/cv-consultant-pro/ci.yml?branch=main&label=CI&logo=github)](https://github.com/alvintayzhenwei/cv-consultant-pro/actions/workflows/ci.yml)
 [![Audit](https://img.shields.io/github/actions/workflow/status/alvintayzhenwei/cv-consultant-pro/audit.yml?branch=main&label=Audit&logo=github)](https://github.com/alvintayzhenwei/cv-consultant-pro/actions/workflows/audit.yml)
 [![CodeQL](https://img.shields.io/github/actions/workflow/status/alvintayzhenwei/cv-consultant-pro/codeql.yml?branch=main&label=CodeQL&logo=github)](https://github.com/alvintayzhenwei/cv-consultant-pro/actions/workflows/codeql.yml)
-[![tests](https://img.shields.io/badge/tests-262%20passing-brightgreen)](tests/)
-[![license](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
+[![tests](https://img.shields.io/badge/tests-296%20passing-brightgreen)](https://github.com/alvintayzhenwei/cv-consultant-pro/tree/main/tests)
+[![license](https://img.shields.io/badge/license-MIT-blue)](https://github.com/alvintayzhenwei/cv-consultant-pro/blob/main/LICENSE)
 
 <!--
 Workflow badges read live from Actions and show "no status" until each has run on
@@ -22,7 +22,7 @@ not write, and never invents a number.
 Use it as a **plugin** — your assistant runs the conversation and the tools enforce the
 rules — or as a CLI.
 
-![The rail layout, rendered from the fictional example corpus](docs/sample-rail.png)
+![The rail layout, rendered from the fictional example corpus](https://raw.githubusercontent.com/alvintayzhenwei/cv-consultant-pro/main/docs/sample-rail.png)
 
 > Every name, figure and contact detail above is invented. The screenshot is generated from
 > `career-corpus.example.yaml`, never from a real corpus.

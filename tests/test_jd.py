@@ -78,3 +78,79 @@ def test_the_title_and_location_are_captured() -> None:
     jd = parse_jd(POSTING, title="AI Technical Enablement Lead", source="google")
     assert jd.title == "AI Technical Enablement Lead"
     assert jd.source == "google"
+
+
+# ── postings that use no bullet glyph at all ────────────────────────────────
+# Found by running the engine against Apple's own job API, which returns
+# qualifications as plain newline-separated lines. Every fixture written before
+# this one used "- " bullets, so the whole suite was green while the parser
+# silently found nothing in a real posting — and then told the user to check
+# that the headings had survived the copy, which was wrong advice: the headings
+# were fine, the bullets had never existed.
+UNBULLETED = """Engineering Product Manager
+
+Description
+As an Engineering Product Manager on our team, you will be the driving force
+behind the planning and delivery of internal tools.
+
+Minimum Qualifications
+Bachelor's degree in Computer Science, Information Systems, or related field
+Minimum 5 years of experience in technical program or project management
+Hands-on experience in frontend software engineering, including React and JavaScript
+
+Preferred Qualifications
+Experience with AI-assisted development tools (e.g., Claude Code, Codex)
+Familiarity with Agile or iterative development practices
+"""
+
+
+def test_a_posting_with_no_bullet_glyphs_still_yields_requirements() -> None:
+    jd = parse_jd(UNBULLETED)
+    assert jd.requirements, (
+        "a posting whose qualifications are plain lines under a heading — which is "
+        "what Apple's own job API returns — produced nothing at all"
+    )
+    texts = [r.text for r in jd.requirements]
+    assert any("React" in t for t in texts)
+    assert any("Agile" in t for t in texts)
+
+
+def test_tiers_survive_when_the_bullets_are_missing() -> None:
+    jd = parse_jd(UNBULLETED)
+    minimum = [r.text for r in jd.by_tier(Tier.MINIMUM)]
+    preferred = [r.text for r in jd.by_tier(Tier.PREFERRED)]
+    assert any("5 years" in t for t in minimum)
+    assert any("Agile" in t for t in preferred)
+    assert not any("Agile" in t for t in minimum), "a preferred line leaked into minimum"
+
+
+def test_prose_outside_a_qualifications_section_is_not_a_requirement() -> None:
+    """The cost of accepting unbulleted lines, and the bound that contains it.
+
+    `Description` DOES open a section here — a responsibilities one — so the
+    first cut of the unbulleted-line rule scored Apple's marketing prose as
+    requirements. Only a qualifications list takes unbulleted lines now, because
+    a qualifications section is a list by convention and a description is not.
+    """
+    jd = parse_jd(UNBULLETED)
+    assert not any("driving force" in r.text for r in jd.requirements)
+
+
+def test_a_paragraph_inside_a_section_is_not_mistaken_for_a_requirement() -> None:
+    """Some postings open a qualifications section with a sentence of prose.
+
+    A requirement is a short clause; the longest real one measured across both
+    Apple postings was 142 characters. A paragraph is not one, and scoring it
+    would put a wall of marketing text on the scorecard.
+    """
+    paragraph = (
+        "We are looking for someone who thrives in ambiguity and brings a genuine "
+        "passion for building tools that people actually want to use, working "
+        "closely with partners across several time zones to land outcomes that "
+        "matter to the business and to the teams we support every single day, "
+        "which means communicating clearly and often with everyone involved."
+    )
+    jd = parse_jd(f"Minimum Qualifications\n{paragraph}\nReact and JavaScript experience\n")
+    texts = [r.text for r in jd.requirements]
+    assert any("React" in t for t in texts)
+    assert not any("thrives in ambiguity" in t for t in texts)

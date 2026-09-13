@@ -20,6 +20,7 @@ from .corpus import Corpus, CorpusError, load_corpus, resolve_corpus_path
 from .interview import Interview
 from .jd import JobDescription
 from .match import Scorecard, Verdict
+from .render import select
 
 
 class Stage(StrEnum):
@@ -27,6 +28,8 @@ class Stage(StrEnum):
     CORPUS_INCOMPLETE = "corpus_incomplete"
     NEEDS_LAYOUT = "needs_layout"
     NEEDS_JD = "needs_jd"
+    NEEDS_SUMMARY = "needs_summary"
+    NEEDS_FIGURES = "needs_figures"
     SCORED = "scored"
     RENDERED = "rendered"
     INTERVIEWING = "interviewing"
@@ -63,6 +66,22 @@ class Session:
     card: Scorecard | None = None
     kit_dir: Path | None = None
     interview: Interview | None = None
+    #: Which authored summary opens the CV, once the user has chosen. None means
+    #: unasked — and the script asks before rendering, because the opening
+    #: paragraph is a claim about who someone IS. A posting-shaped answer is
+    #: right for one application and wrong for a talent pool, where a single
+    #: stored CV has to answer every search; across two real postings the same
+    #: corpus produced summaries describing two different professions.
+    summary_id: str | None = None
+    #: True once the user has been through the placeholders that will appear on
+    #: THIS CV. Not a promise that every hole is filled — "leave it as [N]" is a
+    #: legitimate answer — only that they were asked before the document was
+    #: written rather than handed a finished CV and a footnote listing its holes.
+    figures_settled: bool = False
+    #: Bullets whose hole the user deliberately kept. Tracked so the script does
+    #: not ask again, and so "I have no number" is recorded as an answer rather
+    #: than mistaken for an unanswered question.
+    acknowledged_placeholders: set[str] = field(default_factory=set)
     #: Set when the corpus changes after a kit was written. A generated kit is a
     #: snapshot, and five of six went silently stale once already.
     kit_stale: bool = False
@@ -81,6 +100,29 @@ class Session:
         except CorpusError as exc:
             self.corpus = None
             self.corpus_error = exc.problems
+
+    def pending_placeholders(self) -> list[dict]:
+        """Unverified figures on bullets THIS CV will actually carry.
+
+        Read off the selection rather than the whole corpus, deliberately. A
+        corpus holds holes on bullets a given posting never selects, and asking
+        about one that will not appear is noise dressed as diligence — it also
+        trains the user to click past the question that matters.
+        """
+        if self.corpus is None or self.card is None:
+            return []
+        holes = []
+        for _role, bullets in select(self.corpus, self.card).roles:
+            for bullet in bullets:
+                if bullet.metric is not None and not bullet.metric.verified:
+                    holes.append(
+                        {
+                            "bullet": bullet.id,
+                            "placeholder": bullet.metric.placeholder or "",
+                            "claim": bullet.claim,
+                        }
+                    )
+        return holes
 
     def next_step(self) -> NextStep:
         if self.corpus is None and not self.corpus_error:
@@ -190,6 +232,32 @@ class Session:
 
         if self.kit_dir is None:
             gaps = len([r for r in self.card.rows if r.verdict is Verdict.GAP])
+            if self.summary_id is None and len(self.corpus.summaries) > 1:
+                return NextStep(
+                    stage=Stage.NEEDS_SUMMARY,
+                    say=(
+                        "Before the CV is written, one choice only the user can make: which "
+                        "summary opens it. Tailored to this posting, or a general one that "
+                        "holds up anywhere? Call cv_summary to show them their own summaries "
+                        "and which this posting would pick."
+                    ),
+                    then_call="cv_summary",
+                    detail={"gaps": gaps, "hard_filters": len(self.card.hard_filters)},
+                )
+            holes = self.pending_placeholders()
+            if holes and not self.figures_settled:
+                first = holes[0]
+                return NextStep(
+                    stage=Stage.NEEDS_FIGURES,
+                    say=(
+                        f"One figure before the CV is written. This bullet will read "
+                        f"\"{first['claim']}\" — is there a real number for "
+                        f"{first['placeholder']}, or should it stay a visible gap? "
+                        "Ask about one at a time, and take 'leave it' for an answer."
+                    ),
+                    then_call="cv_fill_placeholder",
+                    detail={"placeholders": holes, "ask_about": first["bullet"]},
+                )
             return NextStep(
                 stage=Stage.SCORED,
                 say=(

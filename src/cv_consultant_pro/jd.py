@@ -17,6 +17,17 @@ from dataclasses import dataclass, field
 from enum import StrEnum
 
 _BULLET = re.compile(r"^\s*(?:[-•*]|\d+[.)])\s+(.*\S)\s*$")
+
+#: The longest line still treated as a requirement when a posting uses no bullet
+#: glyphs. Measured rather than guessed: across Apple's two Singapore postings
+#: the longest genuine qualification line was 142 characters, so this clears
+#: every real one while still refusing a paragraph of prose.
+_MAX_REQUIREMENT = 240
+
+#: Sections whose contents are a LIST by convention, so an unbulleted line in
+#: one is still a requirement. Responsibilities are deliberately absent:
+#: `Description` opens one, and a description is prose.
+_LIST_SECTIONS = frozenset({"minimum", "preferred"})
 _YEARS = re.compile(r"\b(\d{1,2})\s*\+?\s*(?:or more\s*)?years?\b", re.IGNORECASE)
 
 # Section headings, matched loosely because postings punctuate them freely.
@@ -204,9 +215,36 @@ def parse_jd(text: str, *, title: str | None = None, source: str | None = None) 
             # the right-to-work line usually sits above the headings entirely.
             continue
 
-        bullet = _BULLET.match(line)
-        if bullet and current is not None:
-            jd.requirements.append(_classify(bullet.group(1), current))
+        if current is not None:
+            bullet = _BULLET.match(line)
+            if bullet:
+                jd.requirements.append(_classify(bullet.group(1), current))
+                continue
+
+            # A line inside an open section counts even with no bullet glyph.
+            # Requiring one was a real defect: Apple's own job API returns
+            # qualifications as plain newline-separated lines, so the parser
+            # found NOTHING in a genuine posting and then advised the user to
+            # check that the headings had survived the copy — wrong advice, and
+            # the headings were the one part that was fine.
+            #
+            # TWO bounds, and both are load-bearing.
+            #
+            # The SECTION bound is the important one. Only a qualifications list
+            # takes unbulleted lines, because a qualifications section is a list
+            # by convention while `Description` is prose by convention — and
+            # `Description` opens a RESPONSIBILITY section here, so without this
+            # the first cut of the fix scored Apple's marketing copy as
+            # requirements. That is precisely what this module's own docstring
+            # forbids: inventing criteria the employer never set, then reporting
+            # gaps against them. A responsibilities list that really is a list
+            # still arrives through the bullet branch above.
+            #
+            # The LENGTH bound catches the rest: some postings open a
+            # qualifications section with a sentence of prose, and a requirement
+            # is a short clause rather than a paragraph.
+            if current in _LIST_SECTIONS and len(stripped) <= _MAX_REQUIREMENT:
+                jd.requirements.append(_classify(stripped, current))
             continue
 
         # Outside a scored section, keep only lines that are plainly eligibility

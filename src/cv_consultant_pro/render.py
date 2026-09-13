@@ -178,24 +178,107 @@ def select(corpus: Corpus, card: Scorecard, *, budget: int = LINE_BUDGET) -> Sel
     return selection
 
 
-def _pick_summary(corpus: Corpus, card: Scorecard) -> str | None:
-    """Choose the closest authored summary. Never compose one.
+
+
+def _words(text: str) -> set[str]:
+    return {w.lower() for w in re.findall(r"[a-z][a-z-]{2,}", text.lower())}
+
+
+@dataclass
+class SummaryChoice:
+    """One authored summary, offered to the user to choose between."""
+
+    id: str
+    text: str
+    tags: list[str]
+    #: True for the one the posting would have selected on its own.
+    jd_match: bool
+
+
+def summary_choices(
+    corpus: Corpus, card: Scorecard, *, title: str | None = None
+) -> list[SummaryChoice]:
+    """Every summary the corpus holds, in authored order, with the JD match marked.
+
+    Offered rather than ranked away, because which one opens the CV is a claim
+    about who the user is, and a JD-shaped answer is only right for a JD-shaped
+    application. A CV going into a centralised talent pool has to answer every
+    search, not one posting — and the same corpus produced summaries describing
+    two different professions across two real postings.
+    """
+    best = _best_by_match(corpus, card, title)
+    return [
+        SummaryChoice(id=s.id, text=s.text, tags=list(s.tags), jd_match=(s is best))
+        for s in corpus.summaries
+    ]
+
+
+def _best_by_match(corpus: Corpus, card: Scorecard, title: str | None):
+    if not corpus.summaries:
+        return None
+    wanted = set()
+    for row in card.rows + card.hard_filters:
+        wanted |= _words(row.requirement.text)
+    from_title = _words(title) if title else set()
+
+    def fit(summary) -> tuple[int, int]:
+        """(title hits, requirement hits) — the title is PRIMARY, not a bonus.
+
+        Weighting the title additively was not enough and could not be: the
+        front-end summary carried four requirement hits against the
+        product-management summary's single title hit, so any bonus small enough
+        to be principled still lost to sheer volume. A posting has one title and
+        a page of requirements, so the two are not comparable quantities.
+
+        Sorting by title first says the plain thing instead: if a summary speaks
+        to what the job IS, it opens the CV, and requirement hits only break
+        ties among those.
+        """
+        title_hits = requirement_hits = 0
+        for tag in (t.lower() for t in summary.tags):
+            # Tags are hyphenated compounds ("product-management") while a title
+            # is separate words ("Engineering Product Manager"), so comparing
+            # them whole never matches. Compare the PARTS.
+            parts = set(tag.split("-"))
+            if parts & from_title:
+                title_hits += 1
+            elif tag in wanted or parts & wanted:
+                requirement_hits += 1
+        return (title_hits, requirement_hits)
+
+    return max(corpus.summaries, key=fit)
+
+
+def pick_summary(
+    corpus: Corpus,
+    card: Scorecard,
+    *,
+    title: str | None = None,
+    pinned: str | None = None,
+):
+    """The summary that will open the CV. Never composes one.
 
     Select-only applies to the opening paragraph as much as to a bullet: the
-    engine may pick among summaries the corpus already holds, and if it holds
-    none the CV opens without one rather than with an invention.
+    engine picks among summaries the corpus already holds, and if it holds none
+    the CV opens without one rather than with an invention.
+
+    `pinned` is the user's own choice and outranks the posting. An id that is
+    not in the corpus falls back to the match rather than raising — a stale
+    pin should cost a worse paragraph, not a lost kit.
     """
     if not corpus.summaries:
         return None
-    wanted: set[str] = set()
-    for row in card.rows + card.hard_filters:
-        wanted |= {w.lower() for w in re.findall(r"[a-z][a-z-]{2,}", row.requirement.text.lower())}
+    if pinned:
+        for summary in corpus.summaries:
+            if summary.id == pinned:
+                return summary
+    return _best_by_match(corpus, card, title)
 
-    best = max(
-        corpus.summaries,
-        key=lambda s: sum(1 for t in s.tags if t.lower() in wanted),
-    )
-    return best.text
+
+def _pick_summary(corpus: Corpus, card: Scorecard) -> str | None:
+    """Back-compat shim for callers that predate the title and the pin."""
+    chosen = pick_summary(corpus, card)
+    return chosen.text if chosen else None
 
 
 # A bullet longer than this stops being read. The mechanism is dropped WHOLE
@@ -228,7 +311,12 @@ def _bullet_text(bullet: Bullet) -> str:
 
 
 def build_document(
-    corpus: Corpus, jd: JobDescription, card: Scorecard, selection: Selection
+    corpus: Corpus,
+    jd: JobDescription,
+    card: Scorecard,
+    selection: Selection,
+    *,
+    summary_id: str | None = None,
 ) -> tuple[CvDocument, list[tuple[str, str]], list[tuple[str, str]]]:
     """Assemble the CV as structure, plus its traceability and placeholder lists."""
     p = corpus.person
@@ -265,7 +353,9 @@ def build_document(
         links=list(p.links.values()),
         languages=list(p.languages),
         target_title=jd.title,
-        summary=_pick_summary(corpus, card),
+        summary=(lambda c: c.text if c else None)(
+            pick_summary(corpus, card, title=jd.title, pinned=summary_id)
+        ),
         skills=list(selection.skills),
         roles=roles,
         education=education,
@@ -314,8 +404,17 @@ def _markdown(doc: CvDocument) -> str:
     return "\n".join(out).rstrip() + "\n"
 
 
-def render(corpus: Corpus, jd: JobDescription, card: Scorecard, selection: Selection) -> Kit:
-    document, trace, placeholders = build_document(corpus, jd, card, selection)
+def render(
+    corpus: Corpus,
+    jd: JobDescription,
+    card: Scorecard,
+    selection: Selection,
+    *,
+    summary_id: str | None = None,
+) -> Kit:
+    document, trace, placeholders = build_document(
+        corpus, jd, card, selection, summary_id=summary_id
+    )
     markdown = _markdown(document)
 
     _audit(markdown, corpus, selection)
@@ -356,4 +455,13 @@ def _audit(markdown: str, corpus: Corpus, selection: Selection) -> None:
                     )
 
 
-__all__ = ["AuditError", "Kit", "Selection", "render", "select"]
+__all__ = [
+    "AuditError",
+    "Kit",
+    "Selection",
+    "SummaryChoice",
+    "pick_summary",
+    "render",
+    "select",
+    "summary_choices",
+]
