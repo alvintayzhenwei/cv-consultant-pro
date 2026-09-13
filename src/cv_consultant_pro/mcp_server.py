@@ -1,4 +1,4 @@
-"""The MCP server — cv-tailor for Claude Code, Codex, and anything else.
+"""The MCP server — cv-consultant-pro for Claude Code, Codex, and anything else.
 
 Every plugin system worth the name bundles MCP servers, so this is the payload
 that both plugin manifests wrap. It is also why the guarantees live *here* and
@@ -45,7 +45,7 @@ from .templates import TEMPLATES, get_template, render_html
 #: Loaded by the host alongside the tool list, so it reaches clients that never
 #: install the skill. Kept short deliberately - an instruction block long enough
 #: to skim is an instruction block that gets skimmed.
-INSTRUCTIONS = """cv-tailor builds a CV by SELECTING from the user's own career
+INSTRUCTIONS = """cv-consultant-pro builds a CV by SELECTING from the user's own career
 evidence. It never authors a claim and never invents a figure.
 
 Call cv_status first. Every tool returns a next_step saying which stage the
@@ -66,7 +66,7 @@ Three rules the tools enforce and you must not work around:
 Report the score before rendering anything, and lead with any hard filter - a
 registration or right-to-work requirement disqualifies rather than scores."""
 
-mcp = FastMCP("cv-tailor", instructions=INSTRUCTIONS)
+mcp = FastMCP("cv-consultant-pro", instructions=INSTRUCTIONS)
 
 #: One session per server process. A stdio MCP server serves a single client,
 #: and sharing a corpus between clients would be a privacy failure rather than a
@@ -639,7 +639,7 @@ def cv_explain() -> str:
 
 
 def main() -> None:
-    """Entry point for `uvx cv-tailor-mcp` and for both plugin manifests."""
+    """Entry point for `uvx cv-consultant-pro-mcp` and for both plugin manifests."""
     mcp.run()
 
 

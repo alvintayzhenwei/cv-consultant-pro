@@ -10,13 +10,13 @@ import urllib.request
 
 import pytest
 
-from cv_tailor.corpus import load_corpus_text
-from cv_tailor.document import CvDocument
-from cv_tailor.jd import parse_jd
-from cv_tailor.match import Scorecard, score
-from cv_tailor.preview import LOOPBACK, start_preview
-from cv_tailor.render import build_document, select
-from cv_tailor.templates import TEMPLATES
+from cv_consultant_pro.corpus import load_corpus_text
+from cv_consultant_pro.document import CvDocument
+from cv_consultant_pro.jd import parse_jd
+from cv_consultant_pro.match import Scorecard, score
+from cv_consultant_pro.preview import LOOPBACK, start_preview
+from cv_consultant_pro.render import build_document, select
+from cv_consultant_pro.templates import TEMPLATES
 
 from .fixtures import NURSE
 

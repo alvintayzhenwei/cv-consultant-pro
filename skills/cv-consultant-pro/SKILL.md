@@ -1,9 +1,9 @@
 ---
-name: cv-tailor
+name: cv-consultant-pro
 description: Use when the user wants a CV or résumé tailored to a specific job posting, wants to know whether they fit a role, wants to prepare for an interview for one, or wants to build up a record of their own career evidence. Covers seeding a corpus from LinkedIn, scoring against a posting, rendering a portal-safe CV, and the pre-interview conversation.
 ---
 
-# cv-tailor
+# cv-consultant-pro
 
 The tools do the work and enforce the rules. This is about how to hold the
 conversation around them — the part no server can check.

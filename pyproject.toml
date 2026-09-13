@@ -1,5 +1,10 @@
 [project]
-name = "cv-tailor"
+# The distribution deliberately shares its name with the MCP console script
+# below, so `uvx cv-consultant-pro-mcp` works with no `--from`. uvx resolves the
+# name it is handed as a PACKAGE, so any mismatch between the two sends a user
+# who omits the flag somewhere else entirely — which is exactly what happened
+# under the old name. Same shape as the sibling a2a-raid-mcp package.
+name = "cv-consultant-pro-mcp"
 version = "0.1.0"
 description = "Turn a job description into a tailored, ATS-safe application kit from a private career corpus — without inventing a single claim."
 readme = "README.md"
@@ -49,22 +54,30 @@ dev = [
 ]
 
 [project.scripts]
-cv-tailor = "cv_tailor.cli:main"
+cv-consultant-pro = "cv_consultant_pro.cli:main"
 # What the Claude Code and Codex plugin manifests launch, and what a generic MCP
 # client puts in its `command`. A separate entry point from the CLI because one
 # speaks to a person on a terminal and the other speaks JSON-RPC on stdout;
 # sharing one would mean a stray print breaking the protocol.
-cv-tailor-mcp = "cv_tailor.mcp_server:main"
+#
+# It matches the distribution name on purpose — see the note beside `name`.
+#
+# It must never be called `cv-tailor-mcp`, which is what it was first, before
+# anything was published: that is an existing, unrelated PyPI project by another
+# author which also tailors CVs. Naming our command after someone else's package
+# sends anyone who mistypes the install to THEIR code, and takes their name in
+# our own documentation. Guarded in tests/test_packaging.py.
+cv-consultant-pro-mcp = "cv_consultant_pro.mcp_server:main"
 
 [project.urls]
-Repository = "https://github.com/alvintayzhenwei/cv-tailor"
+Repository = "https://github.com/alvintayzhenwei/cv-consultant-pro"
 
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [tool.hatch.build.targets.wheel]
-packages = ["src/cv_tailor"]
+packages = ["src/cv_consultant_pro"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
@@ -79,7 +92,7 @@ target-version = "py311"
 #
 # CI failed with I001 on eight test files that `ruff check .` passed locally —
 # same ruff version, byte-identical files, same config. The difference was how
-# ruff classified `cv_tailor`: first-party locally, where only ./src exists, and
+# ruff classified `cv_consultant_pro`: first-party locally, where only ./src exists, and
 # third-party in CI, where `uv sync` had also installed the package into .venv.
 # That flips which import group each line belongs to, and therefore whether a
 # blank line between them is correct.
@@ -93,4 +106,4 @@ select = ["E4", "E7", "E9", "F", "I", "B", "UP", "RUF"]
 
 [tool.ruff.lint.isort]
 # The line that actually fixes the divergence.
-known-first-party = ["cv_tailor"]
+known-first-party = ["cv_consultant_pro"]

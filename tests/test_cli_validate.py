@@ -1,4 +1,4 @@
-"""`cv-tailor validate` — the command CI and a pre-commit hook would call.
+"""`cv-consultant-pro validate` — the command CI and a pre-commit hook would call.
 
 The exit code is the contract. A validator that prints a complaint and exits 0
 is decoration: it goes green in CI while the corpus is broken, which is the
@@ -11,7 +11,7 @@ from pathlib import Path
 
 import pytest
 
-from cv_tailor.cli import main
+from cv_consultant_pro.cli import main
 
 EXAMPLE = Path(__file__).resolve().parents[1] / "career-corpus.example.yaml"
 

@@ -20,7 +20,7 @@ Layout = Literal["single", "rail"]
 class Template:
     id: str
     name: str
-    #: One line on the direction, shown by `cv-tailor templates`.
+    #: One line on the direction, shown by `cv-consultant-pro templates`.
     blurb: str
     #: False means: do not submit this through an application portal.
     ats_safe: bool

@@ -16,10 +16,10 @@ SCORE a requirement leaked into what goes on the page.
 
 from __future__ import annotations
 
-from cv_tailor.corpus import load_corpus_text
-from cv_tailor.jd import parse_jd
-from cv_tailor.match import Verdict, score
-from cv_tailor.render import select
+from cv_consultant_pro.corpus import load_corpus_text
+from cv_consultant_pro.jd import parse_jd
+from cv_consultant_pro.match import Verdict, score
+from cv_consultant_pro.render import select
 
 CORPUS = """
 person:

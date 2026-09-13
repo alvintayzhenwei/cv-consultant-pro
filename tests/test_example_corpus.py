@@ -10,7 +10,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from cv_tailor.corpus import load_corpus_text
+from cv_consultant_pro.corpus import load_corpus_text
 
 EXAMPLE = Path(__file__).resolve().parents[1] / "career-corpus.example.yaml"
 

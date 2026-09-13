@@ -12,11 +12,11 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from cv_tailor.corpus import load_corpus_text
-from cv_tailor.interview import interview_from_scorecard
-from cv_tailor.jd import parse_jd
-from cv_tailor.match import score
-from cv_tailor.session import Session, Stage
+from cv_consultant_pro.corpus import load_corpus_text
+from cv_consultant_pro.interview import interview_from_scorecard
+from cv_consultant_pro.jd import parse_jd
+from cv_consultant_pro.match import score
+from cv_consultant_pro.session import Session, Stage
 
 from .fixtures import ACCOUNTANT, NURSE
 

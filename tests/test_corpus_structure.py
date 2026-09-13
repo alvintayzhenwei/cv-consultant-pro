@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import pytest
 
-from cv_tailor.corpus import CorpusError, load_corpus_text
+from cv_consultant_pro.corpus import CorpusError, load_corpus_text
 
 MINIMAL = """
 person:

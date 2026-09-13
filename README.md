@@ -1,9 +1,9 @@
-# cv-tailor
+# cv-consultant-pro
 
-[![CI](https://img.shields.io/github/actions/workflow/status/alvintayzhenwei/cv-tailor/ci.yml?branch=main&label=CI&logo=github)](https://github.com/alvintayzhenwei/cv-tailor/actions/workflows/ci.yml)
-[![Audit](https://img.shields.io/github/actions/workflow/status/alvintayzhenwei/cv-tailor/audit.yml?branch=main&label=Audit&logo=github)](https://github.com/alvintayzhenwei/cv-tailor/actions/workflows/audit.yml)
-[![CodeQL](https://img.shields.io/github/actions/workflow/status/alvintayzhenwei/cv-tailor/codeql.yml?branch=main&label=CodeQL&logo=github)](https://github.com/alvintayzhenwei/cv-tailor/actions/workflows/codeql.yml)
-[![tests](https://img.shields.io/badge/tests-259%20passing-brightgreen)](tests/)
+[![CI](https://img.shields.io/github/actions/workflow/status/alvintayzhenwei/cv-consultant-pro/ci.yml?branch=main&label=CI&logo=github)](https://github.com/alvintayzhenwei/cv-consultant-pro/actions/workflows/ci.yml)
+[![Audit](https://img.shields.io/github/actions/workflow/status/alvintayzhenwei/cv-consultant-pro/audit.yml?branch=main&label=Audit&logo=github)](https://github.com/alvintayzhenwei/cv-consultant-pro/actions/workflows/audit.yml)
+[![CodeQL](https://img.shields.io/github/actions/workflow/status/alvintayzhenwei/cv-consultant-pro/codeql.yml?branch=main&label=CodeQL&logo=github)](https://github.com/alvintayzhenwei/cv-consultant-pro/actions/workflows/codeql.yml)
+[![tests](https://img.shields.io/badge/tests-262%20passing-brightgreen)](tests/)
 [![license](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
 
 <!--
@@ -38,27 +38,27 @@ that fails if anything corpus-shaped is tracked, and a test.
 
 ## Install as a plugin
 
-cv-tailor ships as an **MCP server**, which is the payload every plugin system wraps. One
+cv-consultant-pro ships as an **MCP server**, which is the payload every plugin system wraps. One
 install, then talk to your assistant normally: *"tailor my CV for this posting"*.
 
 **Claude Code**
 
 ```bash
-claude mcp add cv-tailor -- uvx cv-tailor-mcp
+claude mcp add cv-consultant-pro -- uvx cv-consultant-pro-mcp
 ```
 
 Or install the whole plugin — server plus the conversation skill — from the marketplace in
 this repository:
 
 ```bash
-/plugin marketplace add alvintayzhenwei/cv-tailor
-/plugin install cv-tailor@alvintayzhenwei
+/plugin marketplace add alvintayzhenwei/cv-consultant-pro
+/plugin install cv-consultant-pro@alvintayzhenwei
 ```
 
 **Codex**
 
 ```bash
-codex mcp add cv-tailor -- uvx cv-tailor-mcp
+codex mcp add cv-consultant-pro -- uvx cv-consultant-pro-mcp
 ```
 
 Codex's plugin marketplace is CLI-only — the IDE extension does not load plugins, so use the
@@ -69,7 +69,11 @@ Codex's plugin marketplace is CLI-only — the IDE extension does not load plugi
 ```json
 {
   "mcpServers": {
-    "cv-tailor": { "type": "stdio", "command": "uvx", "args": ["cv-tailor-mcp"] }
+    "cv-consultant-pro": {
+      "type": "stdio",
+      "command": "uvx",
+      "args": ["cv-consultant-pro-mcp"]
+    }
   }
 }
 ```
@@ -123,9 +127,9 @@ say out loud; the person across the table will.
 ```bash
 uv sync --extra dev
 cp career-corpus.example.yaml career-corpus.yaml   # then fill it in
-uv run python -m cv_tailor.cli validate            # says what is still missing
-uv run python -m cv_tailor.cli templates           # list layouts
-uv run python -m cv_tailor.cli tailor jd.txt --template rail --out kits/acme
+uv run python -m cv_consultant_pro.cli validate            # says what is still missing
+uv run python -m cv_consultant_pro.cli templates           # list layouts
+uv run python -m cv_consultant_pro.cli tailor jd.txt --template rail --out kits/acme
 ```
 
 Output: `cv.md`, `cv.docx`, `cv.html`, `scorecard.md`, `gaps.md`, `traceability.md`,

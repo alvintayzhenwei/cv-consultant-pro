@@ -58,7 +58,7 @@ def _index(token: str, pages: dict[str, str]) -> str:
     )
     return f"""<!doctype html>
 <html lang="en"><head><meta charset="utf-8">
-<title>cv-tailor layouts</title>
+<title>cv-consultant-pro layouts</title>
 <style>
   :root {{ color-scheme: light; }}
   body {{
@@ -158,7 +158,7 @@ def start_preview(document: CvDocument, *, open_browser: bool = True) -> Preview
 
     server = ThreadingHTTPServer((LOOPBACK, 0), partial(_Handler, pages=pages))
     # Daemon: the preview must never be the reason a session refuses to exit.
-    threading.Thread(target=server.serve_forever, daemon=True, name="cv-tailor-preview").start()
+    threading.Thread(target=server.serve_forever, daemon=True, name="cv-consultant-pro-preview").start()
 
     port = server.server_address[1]
     url = f"http://{LOOPBACK}:{port}/{token}"
@@ -168,7 +168,15 @@ def start_preview(document: CvDocument, *, open_browser: bool = True) -> Preview
         try:
             webbrowser.open(url)
         except Exception as exc:
-            print(f"Could not open preview URL in a browser ({url}): {exc}", file=sys.stderr)
+            # stderr, never stdout: this process speaks JSON-RPC on stdout, and a
+            # stray print there breaks the protocol outright.
+            #
+            # And WITHOUT the url. It carries the session token gating a page that
+            # holds a whole career history, and a host captures this stream into a
+            # log file — which outlives the conversation the url was returned in,
+            # and has different permissions. The caller already has the url.
+            print(f"could not open a browser ({exc}); the preview url was returned "
+                  "to you and still works", file=sys.stderr)
     return Preview(url=url, port=port, layouts=list(TEMPLATES), _server=server)
 
 

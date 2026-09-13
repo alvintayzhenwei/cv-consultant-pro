@@ -147,7 +147,7 @@ def test_the_mcp_ceiling_is_tied_to_the_api_the_server_actually_imports() -> Non
     not catch the original break by importing, because a locked dev venv already
     held the old major.
     """
-    server = (ROOT / "src" / "cv_tailor" / "mcp_server.py").read_text(encoding="utf-8")
+    server = (ROOT / "src" / "cv_consultant_pro" / "mcp_server.py").read_text(encoding="utf-8")
     spec = _requirements().get("mcp")
     assert spec, "the MCP server needs `mcp` declared as a dependency"
 
@@ -170,26 +170,63 @@ def test_both_plugin_manifests_launch_the_same_server() -> None:
     claude = json.loads((ROOT / ".claude-plugin" / "plugin.json").read_text(encoding="utf-8"))
     codex = json.loads((ROOT / ".codex-plugin" / "plugin.json").read_text(encoding="utf-8"))
 
-    launch = claude["mcpServers"]["cv-tailor"]
-    assert codex["mcp_servers"]["cv-tailor"] == launch
+    launch = claude["mcpServers"]["cv-consultant-pro"]
+    assert codex["mcp_servers"]["cv-consultant-pro"] == launch
     assert claude["version"] == codex["version"] == _pyproject()["project"]["version"]
 
 
-def test_the_entry_point_the_manifests_launch_exists() -> None:
-    """`uvx cv-tailor-mcp` has to resolve to something, or nothing installs."""
+def test_what_the_manifests_INSTALL_is_what_this_project_PUBLISHES() -> None:
+    """The guard for a defect that reached the README and nearly reached PyPI.
+
+    `uvx NAME` resolves NAME as a PACKAGE, not as a command. Under the project's
+    first name the manifests said `uvx cv-tailor-mcp` while the distribution was
+    named `cv-tailor` — and `cv-tailor-mcp` turned out to be an EXISTING,
+    unrelated project on PyPI that also tailors CVs. So anyone following the
+    install line would have downloaded and run a stranger's code, plausibly
+    without noticing. Caught before anything was published.
+
+    Hence this checks the two names against each other rather than checking
+    either alone. The command must be a real console script here, AND whatever
+    package `uvx` is told to resolve must be the one this pyproject publishes.
+    """
     import json
 
     claude = json.loads((ROOT / ".claude-plugin" / "plugin.json").read_text(encoding="utf-8"))
-    command = claude["mcpServers"]["cv-tailor"]
-    assert command["command"] == "uvx"
-    named = command["args"][-1]
-    assert named in _pyproject()["project"]["scripts"], (
-        f"the manifests launch {named!r}, which is not a console script in pyproject.toml"
+    launch = claude["mcpServers"]["cv-consultant-pro"]
+    assert launch["command"] == "uvx"
+
+    args = launch["args"]
+    command = args[-1]
+    assert command in _pyproject()["project"]["scripts"], (
+        f"the manifests launch {command!r}, which is not a console script in pyproject.toml"
+    )
+
+    distribution = _pyproject()["project"]["name"]
+    if command == distribution:
+        assert args == [command], "a bare uvx is only correct when command == package"
+    else:
+        assert args[:2] == ["--from", distribution], (
+            f"the command {command!r} differs from the distribution {distribution!r}, so "
+            f"uvx needs `--from {distribution}`. Without it uvx resolves {command!r} as a "
+            "PACKAGE NAME on PyPI — which may belong to somebody else entirely."
+        )
+
+
+def test_the_readme_installs_the_same_thing_the_manifests_do() -> None:
+    """A copied-and-pasted README line is how most people will install this."""
+    import json
+
+    args = json.loads(
+        (ROOT / ".claude-plugin" / "plugin.json").read_text(encoding="utf-8")
+    )["mcpServers"]["cv-consultant-pro"]["args"]
+    readme = (ROOT / "README.md").read_text(encoding="utf-8")
+    assert f"uvx {' '.join(args)}" in readme, (
+        "the README's install line disagrees with the plugin manifests"
     )
 
 
 def test_the_skill_is_where_a_plugin_host_looks_for_it() -> None:
-    skill = ROOT / "skills" / "cv-tailor" / "SKILL.md"
+    skill = ROOT / "skills" / "cv-consultant-pro" / "SKILL.md"
     assert skill.is_file()
     text = skill.read_text(encoding="utf-8")
     assert text.startswith("---"), "a skill needs YAML frontmatter to be discovered"
@@ -198,7 +235,47 @@ def test_the_skill_is_where_a_plugin_host_looks_for_it() -> None:
 
 def test_the_skill_repeats_the_rules_the_server_enforces() -> None:
     """A host may load the skill and never read this repo. The rules travel with it."""
-    text = (ROOT / "skills" / "cv-tailor" / "SKILL.md").read_text(encoding="utf-8").lower()
+    text = (ROOT / "skills" / "cv-consultant-pro" / "SKILL.md").read_text(encoding="utf-8").lower()
     assert "own phrasing" in text or "own words" in text
     assert "estimated_placeholder" in text
     assert "exposure to" in text, "the skill must name the way a gap gets softened"
+
+
+#: PyPI projects belonging to somebody else. No command or package name here may
+#: be one of these. Sharing a stranger's package name sends anyone who omits
+#: `--from` to THEIR code, and takes their name in our own documentation.
+NOT_OURS = {
+    # An unrelated MCP server by another author that also tailors a CV to a job
+    # posting. This project was called that in its first cut, in every install
+    # line, which is the whole reason the list exists. Note a blanket
+    # search-and-replace during the rename briefly pointed this set at OUR OWN
+    # name — the guard below caught it, which is the other reason it exists.
+    "cv-tailor-mcp",
+}
+
+
+def test_nothing_here_is_named_after_someone_elses_project() -> None:
+    project = _pyproject()["project"]
+    claimed = set(project["scripts"]) | {project["name"]}
+    collision = claimed & NOT_OURS
+    assert not collision, (
+        f"{sorted(collision)} names an existing PyPI project by another author. "
+        "Rename ours: a command sharing a stranger's package name sends anyone who "
+        "omits `--from` to their code, and borrows their name in our own docs."
+    )
+
+
+def test_their_name_appears_nowhere_a_user_would_copy_from() -> None:
+    """Install lines get copied. Their project's name must not be in ours at all."""
+    surfaces = (
+        ROOT / "README.md",
+        ROOT / ".claude-plugin" / "plugin.json",
+        ROOT / ".codex-plugin" / "plugin.json",
+        ROOT / "skills" / "cv-consultant-pro" / "SKILL.md",
+        ROOT / "src" / "cv_consultant_pro" / "mcp_server.py",
+    )
+    for name in NOT_OURS:
+        for surface in surfaces:
+            assert name not in surface.read_text(encoding="utf-8"), (
+                f"{surface.name} mentions {name!r}, which is another author's project"
+            )

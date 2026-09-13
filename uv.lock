@@ -221,7 +221,7 @@ wheels = [
 ]
 
 [[package]]
-name = "cv-tailor"
+name = "cv-consultant-pro-mcp"
 version = "0.1.0"
 source = { editable = "." }
 dependencies = [

@@ -6,7 +6,7 @@ import re
 
 import pytest
 
-from cv_tailor.templates import TEMPLATES
+from cv_consultant_pro.templates import TEMPLATES
 
 
 @pytest.mark.parametrize("template_id", sorted(TEMPLATES))
