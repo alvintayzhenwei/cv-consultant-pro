@@ -3,7 +3,7 @@
 [![CI](https://img.shields.io/github/actions/workflow/status/alvintayzhenwei/cv-consultant-pro/ci.yml?branch=main&label=CI&logo=github)](https://github.com/alvintayzhenwei/cv-consultant-pro/actions/workflows/ci.yml)
 [![Audit](https://img.shields.io/github/actions/workflow/status/alvintayzhenwei/cv-consultant-pro/audit.yml?branch=main&label=Audit&logo=github)](https://github.com/alvintayzhenwei/cv-consultant-pro/actions/workflows/audit.yml)
 [![CodeQL](https://img.shields.io/github/actions/workflow/status/alvintayzhenwei/cv-consultant-pro/codeql.yml?branch=main&label=CodeQL&logo=github)](https://github.com/alvintayzhenwei/cv-consultant-pro/actions/workflows/codeql.yml)
-[![tests](https://img.shields.io/badge/tests-337%20passing-brightgreen)](https://github.com/alvintayzhenwei/cv-consultant-pro/tree/main/tests)
+[![tests](https://img.shields.io/badge/tests-341%20passing-brightgreen)](https://github.com/alvintayzhenwei/cv-consultant-pro/tree/main/tests)
 [![license](https://img.shields.io/badge/license-MIT-blue)](https://github.com/alvintayzhenwei/cv-consultant-pro/blob/main/LICENSE)
 
 <!--
@@ -31,6 +31,19 @@ your own CV in them and serves them on loopback only, on a random port behind a 
 token, for as long as the session lasts.
 
 ![The layout chooser: five templates side by side, each rendered from the fictional example corpus](https://raw.githubusercontent.com/alvintayzhenwei/cv-consultant-pro/main/docs/sample-layouts.png)
+
+**Getting a PDF.** The kit writes `cv.md`, `cv.docx` and `cv.html`; no PDF is
+generated, because producing one needs a browser engine or a native toolchain and
+this installs with `uvx` and four pure dependencies. The HTML is print-ready — A4
+`@page`, zero margin, colour-adjust on — so open `cv.html` and print to PDF with
+**paper A4, margins None, and Background graphics ON**. Without that last one a
+name band or a coloured rail prints white.
+
+**`cv.docx` deliberately ignores the layout you chose.** It is the submit format:
+one column, no tables, a standard font, dull on purpose. Parsing is the only hard
+gate on an application, and several of these layouts look good precisely by doing
+what a parser mishandles. Send the HTML or its PDF to a person; send the `.docx`
+to a portal.
 
 The three marked **portal-safe** are single column with no sidebar, icons or images, because
 parsing is the only hard gate on an application. The other two look better by doing exactly

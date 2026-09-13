@@ -153,9 +153,20 @@ ul { list-style: none; }
 body { width: 210mm; min-height: 297mm; }
 
 /* A role must not break across a page. Splitting a heading from its bullets is
-   the one layout failure a reader notices immediately. */
+   the one layout failure a reader notices immediately.
+
+   A SECTION must be allowed to break. `section { break-inside: avoid-page }`
+   used to sit here and it cannot be satisfied: Experience is the longest thing
+   on a CV and is routinely taller than one sheet, so the browser gives up,
+   pushes the whole section onto a fresh page, and abandons whatever was left of
+   the page above it — two thirds of a blank sheet between Core skills and
+   Experience, printing to PDF. It only ever looked right because the example
+   corpus is short enough for every section to fit on one page.
+
+   A heading must not be the last thing on a page either, and unlike a section
+   that rule IS satisfiable, because a heading is one line. */
 .role { break-inside: avoid; }
-section { break-inside: avoid-page; }
+section > h2 { break-after: avoid; }
 """
 
 __all__ = ["Layout", "Template", "render_html"]

@@ -549,3 +549,32 @@ def test_the_summary_marks_a_question_nobody_answered(scored) -> None:
     summary = call(mcp_server.cv_interview_summary)
     assert summary["answered"] == 0
     assert all(row["answered"] is None for row in summary["rows"])
+
+
+def test_the_kit_says_how_to_get_a_pdf(scored, tmp_path) -> None:
+    """A kit is .md, .docx and .html — and a person asked for a PDF.
+
+    No PDF is generated on purpose: producing one needs a browser engine or a
+    native toolchain, and this installs with `uvx` and four pure dependencies.
+    The HTML is already print-ready (A4 @page, zero margin, colour-adjust), so
+    the browser the user already has does it exactly. That is only true if the
+    tool SAYS so, which it did not.
+    """
+    kit = call(mcp_server.cv_render, out_dir=str(tmp_path / "kit"))
+    assert "pdf" in kit
+    assert "cv.html" in kit["pdf"]
+
+
+def test_the_kit_says_the_docx_ignores_the_chosen_layout(scored, tmp_path) -> None:
+    """Reported as "doc version not the same as per HTML", and it is by design.
+
+    The .docx is the SUBMIT format: one column, no tables, a standard font,
+    dull on purpose, because parsing is the only hard gate on an application.
+    Several layouts look good precisely by doing what a parser mishandles. But
+    a user who picks Rail and opens the .docx has every reason to expect Rail,
+    so the divergence has to be stated rather than discovered.
+    """
+    kit = call(mcp_server.cv_render, out_dir=str(tmp_path / "kit"))
+    assert "docx_note" in kit
+    note = kit["docx_note"].lower()
+    assert "layout" in note

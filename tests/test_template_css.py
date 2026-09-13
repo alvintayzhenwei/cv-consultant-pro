@@ -164,3 +164,45 @@ def test_content_is_held_off_the_bottom_edge(template_id: str) -> None:
         assert not value.startswith("0"), (
             f"{template_id}: {selector} sets a bottom inset of {value}"
         )
+
+
+def test_a_section_taller_than_a_page_is_allowed_to_break() -> None:
+    """`break-inside: avoid` on `section` empties the rest of the page.
+
+    Experience is the longest thing on a CV and is routinely taller than one
+    sheet, so it can NEVER satisfy the rule. A browser asked to keep it whole
+    gives up, pushes the entire section to a fresh page, and leaves whatever
+    remained of the previous one blank — reported as roughly two thirds of a
+    page of white between Core skills and Experience when printing to PDF.
+
+    The rule that was wanted is the one beside it: `.role { break-inside:
+    avoid }`, which keeps a role heading with its own bullets. That one is
+    satisfiable, because a single role does fit on a page.
+    """
+    from cv_consultant_pro.templates.base import _RESET as BASE_CSS
+
+    for selector_raw, block in re.findall(r"([^{}]+)\{([^}]*)\}", BASE_CSS):
+        selector = selector_raw.strip().splitlines()[-1].strip()
+        if selector != "section":
+            continue
+        assert not re.search(r"break-inside\s*:\s*avoid", block), (
+            "section must not avoid an internal page break: Experience is taller "
+            "than a page, so the rule can never be met and the page above it is "
+            f"abandoned instead.\n{block.strip()}"
+        )
+
+
+def test_a_role_still_keeps_its_heading_with_its_bullets() -> None:
+    """The fix must not take the satisfiable rule with the unsatisfiable one.
+
+    Splitting a role heading from its bullets across a page is the layout
+    failure a reader notices immediately.
+    """
+    from cv_consultant_pro.templates.base import _RESET as BASE_CSS
+
+    role_rules = [
+        block
+        for selector_raw, block in re.findall(r"([^{}]+)\{([^}]*)\}", BASE_CSS)
+        if selector_raw.strip().splitlines()[-1].strip() == ".role"
+    ]
+    assert any(re.search(r"break-inside\s*:\s*avoid", block) for block in role_rules)

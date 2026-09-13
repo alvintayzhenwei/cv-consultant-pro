@@ -603,6 +603,25 @@ def cv_render(out_dir: str = "kits/latest", target: str | None = None) -> str:
             "layout": template.id,
             "portal_safe": template.ats_safe,
             "submit_this": str(out / "cv.docx"),
+            # No PDF is generated, and that is a decision rather than an
+            # omission: producing one needs a browser engine or a native
+            # toolchain, and this installs with `uvx` and four pure
+            # dependencies. The HTML is already print-ready — A4 @page, zero
+            # margin, colour-adjust on — so the browser the user already has
+            # renders it exactly. That only helps if the tool says so.
+            "pdf": (
+                f"Open {out / 'cv.html'} in a browser and print to PDF. Set paper to "
+                "A4, margins to None, and turn Background graphics ON — without it a "
+                "name band or a coloured rail prints white and the layout falls apart."
+            ),
+            "docx_note": (
+                "cv.docx deliberately ignores the chosen layout. It is the SUBMIT "
+                "format: one column, no tables, a standard font, dull on purpose, "
+                "because parsing is the only hard gate on an application and several "
+                "of these layouts look good precisely by doing what a parser "
+                "mishandles. Send cv.html or its PDF to a person; send cv.docx to a "
+                "portal."
+            ),
             "roles": len(kit.document.roles),
             "dropped_roles": selection.dropped_roles,
             "placeholders": [{"bullet": b, "placeholder": p} for b, p in kit.placeholders],
