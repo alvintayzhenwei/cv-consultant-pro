@@ -154,3 +154,88 @@ def test_a_paragraph_inside_a_section_is_not_mistaken_for_a_requirement() -> Non
     texts = [r.text for r in jd.requirements]
     assert any("React" in t for t in texts)
     assert not any("thrives in ambiguity" in t for t in texts)
+
+
+def test_a_heading_that_spells_out_its_contraction_still_opens_a_section() -> None:
+    """"What we are looking for" found NOTHING while "What we're looking for" found all of it.
+
+    The patterns were `we'?re` and `you'?ll`, which match the contraction and the
+    typo'd form without the apostrophe — and not the words spelled out. Postings
+    write it both ways, so half of them lost their whole requirements section and
+    the tool reported an empty scorecard as though the corpus were at fault.
+    """
+    for heading in (
+        "What we're looking for",
+        "What we are looking for",
+        "What you'll do",
+        "What you will do",
+    ):
+        jd = parse_jd(f"{heading}\n- Experience monitoring clinical trial sites.\n- GCP training.\n")
+        assert len(jd.requirements) == 2, f"{heading!r} parsed {len(jd.requirements)}"
+
+
+def test_the_noun_sponsor_is_not_mistaken_for_visa_sponsorship() -> None:
+    """"sponsor" is everyday vocabulary in whole industries.
+
+    A clinical-research posting says "working with a sponsor or CRO"; publishing,
+    sport and events all use it too. Matching the bare word moved a scoreable
+    requirement out of the scorecard and into "answer this yourself, no corpus
+    entry can evidence it" — so the candidate lost the credit AND was told to
+    resolve something that was never about immigration.
+    """
+    scoreable = parse_jd(
+        "Minimum qualifications:\n"
+        "- Experience working with a sponsor or CRO on interventional studies.\n"
+    ).requirements
+    assert scoreable and not scoreable[0].is_hard_filter, scoreable[0]
+
+    for line in (
+        "Applicants must not require sponsorship of a visa.",
+        "We are unable to offer visa sponsorship for this role.",
+        "The company cannot sponsor work permits.",
+        "No sponsorship is available.",
+    ):
+        found = parse_jd(f"Minimum qualifications:\n- {line}\n").requirements
+        assert found and found[0].is_hard_filter, f"missed a real filter: {line!r}"
+
+
+def test_the_common_ways_a_posting_names_its_requirements_all_open_a_section() -> None:
+    """An unrecognised heading does not degrade — it DISCARDS.
+
+    Lines under an unknown heading are prose to the parser, so the whole block
+    vanishes while `cv_ingest_jd` still reports a requirement count (made up of
+    boilerplate matched elsewhere). Three independent testers hit this from
+    three professions: "Essential requirements" lost four of six essentials,
+    "Essential - you will not be shortlisted without these" lost every one, and
+    a posting using "What we are looking for" produced an empty scorecard that
+    read as though the CORPUS were at fault.
+
+    These are the phrasings real postings use. Missing one costs a whole
+    section, so the list is worth more than it looks.
+    """
+    essential = [
+        "Essential",
+        "Essential criteria",
+        "Essential requirements",
+        "Essential - you will not be shortlisted without these",
+        "Required",
+        "Requirements",
+        "Must have",
+        "You will have",
+        "You'll have",
+        "Key skills",
+        "Skills required",
+        "What we are looking for",
+        "What we're looking for",
+        "About you",
+    ]
+    for heading in essential:
+        jd = parse_jd(f"{heading}\n- Five years of post-qualification experience.\n- Part 36 offers.\n")
+        assert len(jd.requirements) == 2, f"{heading!r} parsed {len(jd.requirements)}"
+        assert jd.requirements[1].tier is Tier.MINIMUM, heading
+
+    for heading in ("Desirable", "Desirable criteria", "Desirable requirements",
+                    "Desirable skills", "Nice to have"):
+        jd = parse_jd(f"{heading}\n- Costs budgeting experience.\n- Advocacy experience.\n")
+        assert len(jd.requirements) == 2, f"{heading!r} parsed {len(jd.requirements)}"
+        assert jd.requirements[1].tier is Tier.PREFERRED, heading

@@ -38,7 +38,16 @@ _HEADINGS: list[tuple[str, Tier]] = []
 _HARD_FILTER_PATTERNS = (
     r"right to work",
     r"work authorisation|work authorization",
-    r"sponsor(ship)?\b",
+    # "sponsor" is everyday vocabulary in whole industries — a trial sponsor, a
+    # publishing sponsor, an event sponsor. Matching the bare word moved a
+    # scoreable requirement ("working with a sponsor or CRO") out of the
+    # scorecard and into "answer this yourself, no corpus entry can evidence
+    # it", so the candidate lost the credit AND was told to resolve something
+    # that was never about immigration. It counts only alongside immigration
+    # vocabulary, or where the posting is plainly refusing it.
+    r"\bsponsor(ship|ing)?\b[^.]{0,60}\b(visa|immigration|work permit|right to work|employment pass)\b",
+    r"\b(visa|immigration|work permit|right to work|employment pass)\b[^.]{0,60}\bsponsor(ship|ing)?\b",
+    r"\b(no|not|cannot|can't|unable to|without|do not|does not)\b[^.]{0,30}\bsponsor(ship|ing)?\b",
     r"visa\b",
     r"citizen(ship)?\b",
     r"security clearance",
@@ -93,31 +102,50 @@ for _pattern, _tier in (
     # Preferred first, so "preferred qualifications" never falls to a minimum rule.
     (r"preferred qualification", Tier.PREFERRED),
     (r"preferred requirement", Tier.PREFERRED),
-    (r"desirable criteria", Tier.PREFERRED),
-    (r"^desirable$", Tier.PREFERRED),
+    # `^desirable` rather than `^desirable$`, so "Desirable requirements" and
+    # "Desirable skills" cannot fall through to a MINIMUM rule below.
+    (r"^desirable", Tier.PREFERRED),
     (r"^preferred$", Tier.PREFERRED),
     (r"nice to have", Tier.PREFERRED),
     (r"bonus points", Tier.PREFERRED),
     # Minimum and essential.
+    #
+    # An unrecognised heading does not degrade, it DISCARDS: the lines under it
+    # are prose to this parser, so the block vanishes while cv_ingest_jd still
+    # reports a count made of boilerplate matched elsewhere. Three independent
+    # testers hit that from three professions — "Essential requirements" lost
+    # four of six essentials, and "Essential - you will not be shortlisted
+    # without these" lost all of them.
+    #
+    # So `^essential` anchored at the start rather than `^essential$`, and the
+    # contractions are spelled out both ways: `we'?re` matches "we're" and the
+    # apostrophe-less typo, and NOT "we are", which is how half of postings
+    # write it. That one character cost a posting its entire requirements
+    # section and reported an empty scorecard as though the corpus were at fault.
     (r"minimum qualification", Tier.MINIMUM),
     (r"basic qualification", Tier.MINIMUM),
     (r"^qualifications", Tier.MINIMUM),
     (r"minimum requirement", Tier.MINIMUM),
-    (r"^requirements", Tier.MINIMUM),
-    (r"essential criteria", Tier.MINIMUM),
-    (r"^essential$", Tier.MINIMUM),
+    (r"^require(ments?|d)\b", Tier.MINIMUM),
+    (r"^essential", Tier.MINIMUM),
+    (r"must have", Tier.MINIMUM),
+    (r"you(?:'ll| will| ?ll)? have\b", Tier.MINIMUM),
+    (r"key skills", Tier.MINIMUM),
+    (r"skills required", Tier.MINIMUM),
     (r"person specification", Tier.MINIMUM),
     (r"selection criteria", Tier.MINIMUM),
     (r"skills and experience", Tier.MINIMUM),
     (r"about you", Tier.MINIMUM),
-    (r"what we'?re looking for", Tier.MINIMUM),
-    (r"what you'?ll need", Tier.MINIMUM),
+    (r"what we(?:'re| are| ?re) looking for", Tier.MINIMUM),
+    (r"what we need", Tier.MINIMUM),
+    (r"who you are", Tier.MINIMUM),
+    (r"what you(?:'ll| will| ?ll) need", Tier.MINIMUM),
     # Responsibilities.
     (r"responsibilit", Tier.RESPONSIBILITY),
     (r"key duties", Tier.RESPONSIBILITY),
     (r"main duties", Tier.RESPONSIBILITY),
     (r"^duties", Tier.RESPONSIBILITY),
-    (r"what you'?ll do", Tier.RESPONSIBILITY),
+    (r"what you(?:'ll| will| ?ll) do", Tier.RESPONSIBILITY),
     (r"^the role$", Tier.RESPONSIBILITY),
     (r"^description", Tier.RESPONSIBILITY),
 ):
