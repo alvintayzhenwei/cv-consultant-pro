@@ -11,7 +11,7 @@ from pathlib import Path
 
 import pytest
 
-from cv_tailor.corpus import ENV_VAR, CorpusError, load_corpus, resolve_corpus_path
+from cv_consultant_pro.corpus import ENV_VAR, CorpusError, load_corpus, resolve_corpus_path
 
 
 def test_an_explicit_path_wins(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:

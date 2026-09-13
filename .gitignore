@@ -11,7 +11,7 @@ career-corpus.*.yaml
 !career-corpus.example.yaml
 # Leading slash = repository ROOT only. Without it, `corpus/` matches a
 # directory of that name at ANY depth — and it silently swallowed
-# src/cv_tailor/corpus/, so the schema, loader and validator were never
+# src/cv_consultant_pro/corpus/, so the schema, loader and validator were never
 # committed. Everything passed locally, where the files exist on disk, while CI
 # failed importing a module that was not in the repository at all.
 /corpus/

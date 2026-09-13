@@ -5,9 +5,9 @@ shipped to a public repository as nothing at all.
 
 `.gitignore` carried `corpus/` to keep a private career corpus out. Git patterns
 without a leading slash match at ANY depth, so it also matched
-`src/cv_tailor/corpus/`. Locally everything passed, because the files were on
+`src/cv_consultant_pro/corpus/`. Locally everything passed, because the files were on
 disk. CI cloned a repository that did not contain them and failed importing
-`cv_tailor.corpus`.
+`cv_consultant_pro.corpus`.
 
 The existing guards could not catch it: they all ask "is anything private
 tracked?" and this is the mirror question, "is anything public NOT tracked?"
@@ -59,16 +59,16 @@ def test_no_source_or_test_file_is_untracked() -> None:
 def test_the_shipped_package_exposes_its_subpackages() -> None:
     """The failure this test file exists for, stated as behaviour.
 
-    `import cv_tailor` succeeded in CI while `cv_tailor.corpus` did not, because
+    `import cv_consultant_pro` succeeded in CI while `cv_consultant_pro.corpus` did not, because
     the parent package was present and the subpackage was not. Importing the top
     level proves nothing.
     """
-    import cv_tailor.corpus
-    import cv_tailor.docx
-    import cv_tailor.jd
-    import cv_tailor.match
-    import cv_tailor.render
-    import cv_tailor.templates  # noqa: F401
+    import cv_consultant_pro.corpus
+    import cv_consultant_pro.docx
+    import cv_consultant_pro.jd
+    import cv_consultant_pro.match
+    import cv_consultant_pro.render
+    import cv_consultant_pro.templates  # noqa: F401
 
 
 def test_private_paths_are_still_ignored_at_the_repository_root() -> None:

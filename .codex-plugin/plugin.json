@@ -1,19 +1,17 @@
 {
-  "name": "cv-tailor",
+  "name": "cv-consultant-pro",
   "description": "Turn a job posting into a tailored, portal-safe CV from your own career evidence \u2014 without inventing a single claim.",
   "version": "0.1.0",
   "author": {
     "name": "Alvin Tay Zhenwei"
   },
-  "homepage": "https://github.com/alvintayzhenwei/cv-tailor",
+  "homepage": "https://github.com/alvintayzhenwei/cv-consultant-pro",
   "license": "MIT",
   "mcp_servers": {
-    "cv-tailor": {
+    "cv-consultant-pro": {
       "command": "uvx",
       "args": [
-        "--from",
-        "cv-tailor",
-        "cv-tailor-serve"
+        "cv-consultant-pro-mcp"
       ]
     }
   }

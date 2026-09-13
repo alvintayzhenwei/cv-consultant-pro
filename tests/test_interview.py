@@ -8,8 +8,8 @@ from __future__ import annotations
 
 import pytest
 
-from cv_tailor.corpus import load_corpus_text
-from cv_tailor.interview import (
+from cv_consultant_pro.corpus import load_corpus_text
+from cv_consultant_pro.interview import (
     QUESTION_COUNT,
     Interview,
     InterviewError,
@@ -17,8 +17,8 @@ from cv_tailor.interview import (
     build_questions,
     interview_from_scorecard,
 )
-from cv_tailor.jd import parse_jd
-from cv_tailor.match import Verdict, score
+from cv_consultant_pro.jd import parse_jd
+from cv_consultant_pro.match import Verdict, score
 
 from .fixtures import NURSE, TEACHER
 

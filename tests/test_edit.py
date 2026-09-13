@@ -9,8 +9,8 @@ from __future__ import annotations
 
 import pytest
 
-from cv_tailor.corpus import load_corpus_text
-from cv_tailor.edit import (
+from cv_consultant_pro.corpus import load_corpus_text
+from cv_consultant_pro.edit import (
     EditError,
     NewBullet,
     add_bullet,

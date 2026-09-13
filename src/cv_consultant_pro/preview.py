@@ -58,7 +58,7 @@ def _index(token: str, pages: dict[str, str]) -> str:
     )
     return f"""<!doctype html>
 <html lang="en"><head><meta charset="utf-8">
-<title>cv-tailor layouts</title>
+<title>cv-consultant-pro layouts</title>
 <style>
   :root {{ color-scheme: light; }}
   body {{
@@ -158,7 +158,7 @@ def start_preview(document: CvDocument, *, open_browser: bool = True) -> Preview
 
     server = ThreadingHTTPServer((LOOPBACK, 0), partial(_Handler, pages=pages))
     # Daemon: the preview must never be the reason a session refuses to exit.
-    threading.Thread(target=server.serve_forever, daemon=True, name="cv-tailor-preview").start()
+    threading.Thread(target=server.serve_forever, daemon=True, name="cv-consultant-pro-preview").start()
 
     port = server.server_address[1]
     url = f"http://{LOOPBACK}:{port}/{token}"

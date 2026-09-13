@@ -52,7 +52,7 @@ jobs:
       # also keeps the exit code honest: a validator that complains and exits 0
       # would go green here while the corpus was broken.
       - name: Validate the example corpus
-        run: uv run python -m cv_tailor.cli validate career-corpus.example.yaml
+        run: uv run python -m cv_consultant_pro.cli validate career-corpus.example.yaml
 
   disclosure-boundary:
     name: No corpus or kit is tracked

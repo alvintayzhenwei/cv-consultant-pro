@@ -8,11 +8,11 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from cv_tailor.corpus import load_corpus_text
-from cv_tailor.docx import write_docx
-from cv_tailor.jd import parse_jd
-from cv_tailor.match import Verdict, score
-from cv_tailor.render import render, select
+from cv_consultant_pro.corpus import load_corpus_text
+from cv_consultant_pro.docx import write_docx
+from cv_consultant_pro.jd import parse_jd
+from cv_consultant_pro.match import Verdict, score
+from cv_consultant_pro.render import render, select
 
 CORPUS = """
 person:

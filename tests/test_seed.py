@@ -13,8 +13,8 @@ from __future__ import annotations
 
 import pytest
 
-from cv_tailor.corpus import load_corpus_text
-from cv_tailor.seed import (
+from cv_consultant_pro.corpus import load_corpus_text
+from cv_consultant_pro.seed import (
     SeedError,
     parse_profile,
     read_pdf,

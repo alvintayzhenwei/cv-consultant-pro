@@ -11,8 +11,8 @@ import json
 
 import pytest
 
-from cv_tailor import mcp_server
-from cv_tailor.session import Session, Stage
+from cv_consultant_pro import mcp_server
+from cv_consultant_pro.session import Session, Stage
 
 from .fixtures import NURSE, TEACHER
 

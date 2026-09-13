@@ -1,4 +1,4 @@
-"""cv-tailor — a job description in, a tailored application kit out.
+"""cv-consultant-pro — a job description in, a tailored application kit out.
 
 The package is deliberately split into three layers that never merge:
 

@@ -3,7 +3,7 @@
   "owner": { "name": "Alvin Tay Zhenwei" },
   "plugins": [
     {
-      "name": "cv-tailor",
+      "name": "cv-consultant-pro",
       "source": "./",
       "description": "Turn a job posting into a tailored, portal-safe CV from your own career evidence — without inventing a single claim."
     }

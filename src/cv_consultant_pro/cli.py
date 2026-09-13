@@ -1,8 +1,8 @@
 """Command line entry point.
 
-    cv-tailor validate [corpus]        check a career corpus
-    cv-tailor templates                list the CV layouts
-    cv-tailor tailor <jd> [--template] build an application kit
+    cv-consultant-pro validate [corpus]        check a career corpus
+    cv-consultant-pro templates                list the CV layouts
+    cv-consultant-pro tailor <jd> [--template] build an application kit
 """
 
 from __future__ import annotations
@@ -194,7 +194,7 @@ def _tailor(
 def main(argv: Sequence[str] | None = None) -> int:
     _use_utf8_output()
     parser = argparse.ArgumentParser(
-        prog="cv-tailor",
+        prog="cv-consultant-pro",
         description="Turn a job description into a tailored application kit.",
     )
     sub = parser.add_subparsers(dest="command", required=True)

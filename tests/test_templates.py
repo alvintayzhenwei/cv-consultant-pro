@@ -11,9 +11,9 @@ import re
 
 import pytest
 
-from cv_tailor.document import CvDocument, RenderedRole
-from cv_tailor.templates import TEMPLATES, get_template, render_html
-from cv_tailor.templates.registry import DEFAULT_TEMPLATE_ID
+from cv_consultant_pro.document import CvDocument, RenderedRole
+from cv_consultant_pro.templates import TEMPLATES, get_template, render_html
+from cv_consultant_pro.templates.registry import DEFAULT_TEMPLATE_ID
 
 DOC = CvDocument(
     name="Jordan Reyes",

@@ -525,7 +525,7 @@ def to_corpus_yaml(profile: SeededProfile) -> str:
     """
     person = profile.person_block()
     lines = [
-        "# Drafted from a LinkedIn profile PDF by cv-tailor. Nothing here is final.",
+        "# Drafted from a LinkedIn profile PDF by cv-consultant-pro. Nothing here is final.",
         "#",
         "# What was read off the page: employers, titles, dates, certifications,",
         "# education. What was NOT: a single bullet. A bullet needs a claim, the",

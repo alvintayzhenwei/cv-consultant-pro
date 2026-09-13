@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from cv_tailor.jd import Tier, parse_jd
+from cv_consultant_pro.jd import Tier, parse_jd
 
 POSTING = """
 AI Technical Enablement Lead, Forward Deployed Engineering
