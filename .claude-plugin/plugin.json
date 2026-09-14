@@ -1,7 +1,7 @@
 {
   "name": "cv-consultant-pro",
   "description": "Turn a job posting into a tailored, portal-safe CV from your own career evidence \u2014 without inventing a single claim.",
-  "version": "0.1.2",
+  "version": "0.1.3",
   "author": {
     "name": "Alvin Tay Zhenwei"
   },
