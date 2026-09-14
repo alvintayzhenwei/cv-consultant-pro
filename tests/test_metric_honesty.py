@@ -115,3 +115,60 @@ roles:
 """
     )
     assert corpus.roles[0].bullets[0].metric is None
+
+
+# ── a figure the user could not actually state ──────────────────────────────
+import json as _json  # noqa: E402
+
+from cv_consultant_pro import mcp_server as _mcp  # noqa: E402
+
+
+def _call(tool, **kwargs) -> dict:
+    return _json.loads(tool(**kwargs))
+
+
+def test_an_unsure_recollection_is_refused_as_a_measured_figure(tmp_path, monkeypatch) -> None:
+    """"roughly 30 I think, maybe 40" was written as `verified: true`.
+
+    Found by an outside tester on the published 0.1.2: it landed one line under
+    a claim that said nobody had ever run the numbers.
+
+    This is NOT a ban on hedged figures. "~45 minutes to seconds" and "around 2
+    months" are honest — the hedge is the user's own and travels with the claim
+    onto the CV, where they can defend it. An "I think" is different in kind: it
+    marks the speaker as unsure WHICH number it was, and the tool's own contract
+    is that such a number stays a visible placeholder.
+    """
+    from cv_consultant_pro.session import Session
+
+    from .fixtures import NURSE
+
+    corpus = tmp_path / "career-corpus.yaml"
+    corpus.write_text(NURSE.corpus, encoding="utf-8")
+    monkeypatch.setattr(_mcp, "_session", Session())
+    monkeypatch.chdir(tmp_path)
+
+    _call(_mcp.cv_validate, corpus_path=str(corpus))
+    _call(_mcp.cv_ingest_jd, posting=NURSE.posting)
+    _call(_mcp.cv_score)
+    holes = _call(_mcp.cv_fill_placeholder)["placeholders"]
+    if not holes:
+        import pytest
+
+        pytest.skip("this posting selects no bullet carrying a placeholder")
+
+    bullet = holes[0]["bullet"]
+    before = corpus.read_text(encoding="utf-8")
+
+    for bad, why in (
+        ("roughly 30 I think, maybe 40", "unsure which number"),
+        ("several", "no number at all"),
+        ("I ran the ward for a long time and trained a lot of people over 12 years", "a sentence"),
+    ):
+        result = _call(_mcp.cv_fill_placeholder, bullet_id=bullet, measured_figure=bad)
+        assert "error" in result, f"{why}: {bad!r} was accepted"
+        assert "keep_placeholder" in result.get("hint", "")
+    assert corpus.read_text(encoding="utf-8") == before, "a refused figure still wrote to disk"
+
+    ok = _call(_mcp.cv_fill_placeholder, bullet_id=bullet, measured_figure="around 42")
+    assert "error" not in ok, ok

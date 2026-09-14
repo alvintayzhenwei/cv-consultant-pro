@@ -578,3 +578,61 @@ def test_the_kit_says_the_docx_ignores_the_chosen_layout(scored, tmp_path) -> No
     assert "docx_note" in kit
     note = kit["docx_note"].lower()
     assert "layout" in note
+
+
+def test_a_confirmed_figure_must_come_from_what_the_user_actually_said(scored) -> None:
+    """The one field carrying the "never invents a figure" promise was unchecked.
+
+    `measured_figure` was added so a figure could never again be lifted from a
+    different sentence by the proposal's own extractor. It closed that, and left
+    the wider hole open: whatever the calling agent passed was written as
+    `verified: true`, with nothing tying it to the user at all. Found by an
+    outside tester on the published 0.1.2 — an answer containing no number
+    produced `value: "500 sites"` in the corpus and on the rendered CV.
+
+    A docstring asking the agent to pass the user's answer is not a guarantee;
+    this project's whole argument is that a running process refuses where a
+    prompt merely asks. The Proposal keeps `user_said` verbatim precisely so the
+    claim can be traced, so the figure is checked against it.
+    """
+    call(mcp_server.cv_interview)
+    call(mcp_server.cv_acknowledge)
+    question = call(mcp_server.cv_next_question)
+    recorded = call(
+        mcp_server.cv_record_answer,
+        question_id=question["id"],
+        user_said="I led the preceptorship programme and kept every placement staffed.",
+    )
+    result = call(
+        mcp_server.cv_confirm_evidence,
+        proposal_id=recorded["proposals"][0]["id"],
+        verified=True,
+        role_id="royal-ward-sister",
+        mechanism="running the programme alongside the ward rota",
+        measured_figure="500 wards",
+    )
+    assert "error" in result, result
+    assert "500 wards" in result["error"]
+
+
+def test_a_figure_the_user_did_state_is_still_accepted(scored, fresh_session) -> None:
+    """The guard must not throw away the figures it exists to capture."""
+    call(mcp_server.cv_interview)
+    call(mcp_server.cv_acknowledge)
+    question = call(mcp_server.cv_next_question)
+    recorded = call(
+        mcp_server.cv_record_answer,
+        question_id=question["id"],
+        user_said="I ran the preceptorship programme for 42 newly qualified nurses.",
+    )
+    result = call(
+        mcp_server.cv_confirm_evidence,
+        proposal_id=recorded["proposals"][0]["id"],
+        verified=True,
+        role_id="royal-ward-sister",
+        mechanism="running the programme alongside the ward rota",
+        measured_figure="42",
+    )
+    assert "error" not in result, result
+    assert result["figure"] == "42"
+    assert "42" in fresh_session.read_text(encoding="utf-8")

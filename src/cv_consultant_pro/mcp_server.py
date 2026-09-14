@@ -25,6 +25,7 @@ no script produces a different interview on every model; see session.py.
 from __future__ import annotations
 
 import json
+import re
 from pathlib import Path
 from typing import Any
 
@@ -102,6 +103,40 @@ def _err(message: str, *, hint: str | None = None) -> str:
         payload["hint"] = hint
     payload["next_step"] = _session.next_step().as_dict()
     return json.dumps(payload, indent=2, default=str)
+
+
+#: Words that make a number a recollection rather than a measurement.
+#:
+#: Deliberately NOT a ban on hedged figures — "~45 minutes to seconds" and
+#: "around 2 months" are honest, because the hedge is the user's own and travels
+#: with the claim onto the CV, where they can defend it. These are different:
+#: they mark the speaker as unsure WHICH number it was, and an unsure number
+#: presented as measured is the thing this tool exists not to do.
+_UNSURE = ("i think", "i guess", "not sure", "unsure", "maybe", "can't remember",
+           "cannot remember", "or thereabouts", "something like", "no idea")
+
+
+def _figure_problem(figure: str) -> str | None:
+    """Why this string is not a measured figure, or None if it is one."""
+    text = figure.strip()
+    if not text:
+        return "a measured figure cannot be blank"
+    if not any(ch.isdigit() for ch in text):
+        return f"{text!r} carries no number, so it cannot be a measured figure"
+    if len(text) > 40:
+        return (
+            f"{text!r} is a sentence, not a figure. Pass just the measurement "
+            "and let the claim carry the rest."
+        )
+    lowered = text.lower()
+    hedge = next((word for word in _UNSURE if word in lowered), None)
+    if hedge:
+        return (
+            f"{text!r} says {hedge!r}, so it is a recollection rather than a "
+            "measurement. Record it as a placeholder instead — a visible gap is "
+            "honest, a remembered number presented as measured is not."
+        )
+    return None
 
 
 # ── where we are ────────────────────────────────────────────────────────────
@@ -527,6 +562,20 @@ def cv_fill_placeholder(
     if keep_placeholder:
         _session.acknowledged_placeholders.add(bullet_id)
     elif measured_figure:
+        # There is no verbatim answer to check against here — this tool edits the
+        # corpus directly — so the check is on the SHAPE. An outside tester got
+        # "roughly 30 I think, maybe 40" written as `verified: true`, one line
+        # under a claim saying nobody ever ran the numbers.
+        problem = _figure_problem(measured_figure)
+        if problem:
+            return _err(
+                problem,
+                hint=(
+                    "If they do not have a measured number, call again with "
+                    "keep_placeholder=True. The bullet keeps its visible gap, which "
+                    "is honest and often better than a vague number."
+                ),
+            )
         path = str(_session.corpus_path) if _session.corpus_path else None
         try:
             apply(path, lambda text: set_metric(text, bullet_id, measured_figure))
@@ -871,6 +920,35 @@ def cv_confirm_evidence(
         )
 
     figure = measured_figure.strip() if (verified and measured_figure) else None
+    if figure:
+        # The figure has to have come from the user. `measured_figure` was added
+        # so a number could never again be lifted from a different sentence by
+        # the proposal's own extractor; it closed that and left the wider hole
+        # open, because whatever the agent passed was written as measured with
+        # nothing tying it to the user at all. An outside tester answered with a
+        # sentence containing no number and got `value: "500 sites"` onto the CV.
+        #
+        # A docstring asking the agent to pass the user's answer is not a
+        # guarantee. The Proposal keeps `user_said` verbatim precisely so a
+        # claim can be traced, so it is the thing to check against.
+        problem = _figure_problem(figure)
+        if problem:
+            return _err(problem)
+        said = proposal.user_said.lower()
+        digits = re.findall(r"\d[\d,.]*", figure)
+        grounded = (
+            any(d.rstrip(".,") in said for d in digits) if digits else figure.lower() in said
+        )
+        if not grounded:
+            return _err(
+                f"{figure!r} does not appear in what the user said, so it cannot be "
+                "recorded as something they measured",
+                hint=(
+                    "They said: "
+                    f"{proposal.user_said[:160]!r}. Ask them for the figure and pass "
+                    "their answer, or leave the bullet without one."
+                ),
+            )
 
     path = str(_session.corpus_path) if _session.corpus_path else None
     bullet = NewBullet(
