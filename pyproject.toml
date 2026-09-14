@@ -44,7 +44,7 @@ dependencies = [
     # mcp 2.x landed every fresh `uvx` install died at import - so the published
     # instructions could not work for anybody. Move the FLOOR to >=2 when
     # migrating; never widen the range to make an error go away.
-    "mcp>=1.12,<2",        # the plugin server
+    "mcp>=1.12,<3",        # the plugin server
 ]
 
 [project.optional-dependencies]
