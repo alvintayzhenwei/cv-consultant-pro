@@ -33,7 +33,8 @@ def _use_utf8_output() -> None:
         try:
             stream.reconfigure(encoding="utf-8", errors="replace")  # type: ignore[union-attr]
         except (AttributeError, ValueError, OSError):
-            pass
+            # Non-fatal: some streams cannot be reconfigured (e.g. pipes/captured output).
+            continue
 
 
 def _validate(path: str | None) -> int:
