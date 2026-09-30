@@ -16,6 +16,6 @@ an unverified metric renders as its literal placeholder, and the audit stage
 refuses to write output carrying anything untraceable.
 """
 
-__version__ = "0.1.0"
+__version__ = "0.1.4"
 
 __all__ = ["__version__"]
