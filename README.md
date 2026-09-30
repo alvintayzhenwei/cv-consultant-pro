@@ -22,6 +22,11 @@ not write, and never invents a number.
 Use it as a **plugin** — your assistant runs the conversation and the tools enforce the
 rules — or as a CLI.
 
+## References
+
+- [PyPI package](https://pypi.org/project/cv-consultant-pro-mcp/) — published releases and package metadata.
+- [DeepWiki](https://deepwiki.com/alvintayzhenwei/cv-consultant-pro) — repository documentation and architecture overview.
+
 ![The rail layout, rendered from the fictional example corpus](https://raw.githubusercontent.com/alvintayzhenwei/cv-consultant-pro/main/docs/sample-rail.png)
 
 ### Choosing a layout
